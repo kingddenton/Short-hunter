@@ -61,6 +61,11 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
  <span class="status" id="status">Idle · Waiting to start</span>
 </div>
 <div class="pills" style="margin-top:12px"><span class="pill">ATR 10 · Multiplier 3</span><span class="pill">1m · 3m · 5m · 15m · 30m · 1h</span><span class="pill">No Open Interest</span><span class="pill">No trading / API keys</span></div>
+<details id="performanceDiagnostics" style="margin-top:12px"><summary>Performance diagnostics — Binance API usage</summary>
+<div class="small" style="margin:8px 0">Measures requests already made by the scanner; this panel makes no additional Binance calls.</div>
+<div class="pills" id="performanceMetrics"><span class="pill">Waiting for first scan</span></div>
+<div class="small" id="performanceNote" style="margin-top:8px">Rate-limit weight is shown only if Binance exposes its response header to the browser.</div>
+</details>
 </section>
 <section class="panel">
 <h2>Confirmation settings — independent per timeframe and direction</h2>
@@ -114,7 +119,11 @@ const sideDefaults=()=>({bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,di
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,sideDefaults()]));
 let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[],pumpAlerts=[],pumpActive=new Set();
 let exchangeSymbols=null;
+let perf={requests:0,active:0,peak:0,errors:0,rateLimited:0,weight:null,lastStatus:'—',started:0,elapsed:0,byEndpoint:{},lastUpdate:0};
 const setStatus=s=>{$('status').textContent=s};
+function resetPerformance(){perf={requests:0,active:0,peak:0,errors:0,rateLimited:0,weight:null,lastStatus:'—',started:Date.now(),elapsed:0,byEndpoint:{},lastUpdate:0};renderPerformance()}
+function renderPerformance(){const el=$('performanceMetrics');if(!el)return;const weight=perf.weight===null?'not exposed':perf.weight;el.innerHTML=[`Requests: ${perf.requests}`,`Peak concurrent: ${perf.peak}`,`Errors: ${perf.errors}`,`429/418: ${perf.rateLimited}`,`Binance weight/min: ${weight}`,`Last HTTP: ${perf.lastStatus}`,`Elapsed: ${(perf.elapsed|| (perf.started?Date.now()-perf.started:0))/1000|0}s`].map(x=>'<span class="pill">'+esc(x)+'</span>').join('');const note=$('performanceNote');if(note)note.textContent='Existing requests only · '+Object.entries(perf.byEndpoint).map(([k,v])=>k+': '+v).join(' · ')}
+function updatePerformance(force=false){if(force||perf.requests-perf.lastUpdate>=25){perf.lastUpdate=perf.requests;renderPerformance()}}
 let alertAudio=null,lastAlertSoundAt=0;
 function unlockAlertAudio(){try{const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;if(!alertAudio)alertAudio=new Ctx();if(alertAudio.state==='suspended')alertAudio.resume()}catch(e){}}
 function playNewAlertSound(){const now=Date.now();if(now-lastAlertSoundAt<650)return;lastAlertSoundAt=now;try{if(!alertAudio)unlockAlertAudio();if(!alertAudio||alertAudio.state!=='running')return;const t=alertAudio.currentTime,osc=alertAudio.createOscillator(),gain=alertAudio.createGain();osc.type='sine';osc.frequency.setValueAtTime(740,t);osc.frequency.setValueAtTime(988,t+.11);gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.12,t+.025);gain.gain.exponentialRampToValueAtTime(.0001,t+.28);osc.connect(gain);gain.connect(alertAudio.destination);osc.start(t);osc.stop(t+.3)}catch(e){}}
@@ -153,7 +162,15 @@ function drawAlerts(){
   specialEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · ${a.side==='bull'?'BULLISH':'BEARISH'}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';
  }
 }
-async function getJson(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function getJson(url){
+ const endpoint=url.includes('/ticker/24hr')?'ticker':url.includes('/exchangeInfo')?'exchangeInfo':(url.match(/interval=([^&]+)/)||[])[1]||'other';
+ perf.requests++;perf.byEndpoint[endpoint]=(perf.byEndpoint[endpoint]||0)+1;perf.active++;perf.peak=Math.max(perf.peak,perf.active);
+ try{const r=await fetch(url);perf.lastStatus=r.status;const used=r.headers.get('x-mbx-used-weight-1m');if(used!==null)perf.weight=used;
+  if(!r.ok){perf.errors++;if(r.status===429||r.status===418)perf.rateLimited++;updatePerformance();throw new Error('HTTP '+r.status)}
+  updatePerformance();return await r.json();
+ }catch(e){if(!String(e.message||e).startsWith('HTTP '))perf.errors++;updatePerformance();throw e}
+ finally{perf.active--;perf.elapsed=Date.now()-perf.started;updatePerformance()}
+}
 async function universe(){
  const tickers=await getJson(BASE+'/fapi/v1/ticker/24hr');
  const exchange=exchangeSymbols||await getJson(BASE+'/fapi/v1/exchangeInfo');
@@ -205,7 +222,7 @@ function renderSpecialSettings(){
  host.querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const {specialDir:dir,k}=el.dataset;if(el.type==='checkbox'){specialConfig[dir][k]=el.checked;return}const value=Math.max(0,Math.min(100,Number(el.value)));el.value=value;const other=k==='rsiMin'?'rsiMax':'rsiMin';if((k==='rsiMin'&&value>specialConfig[dir].rsiMax)||(k==='rsiMax'&&value<specialConfig[dir].rsiMin)){specialConfig[dir][other]=value;host.querySelector('input[data-special-dir="'+dir+'"][data-k="'+other+'"]').value=value}specialConfig[dir][k]=value}));
 }
 async function scan(){
- if(busy)return;busy=true;const started=Date.now();
+ if(busy)return;busy=true;const started=Date.now();resetPerformance();
  try{
  setStatus('Loading market universe…');
  const candidates=await universe();setStatus('Applying 4H bullish RSI gate to '+candidates.length+' universe candidates…');
@@ -260,7 +277,7 @@ async function scan(){
   }catch(e){/* individual market-data failures do not stop the full scan */}
   checked++;if(checked%30===0)setStatus('Scanning '+checked+'/'+tasks.length+' · '+newAlerts+' new alerts');
  });
- drawAlerts();setStatus('Completed · '+candidates.length+' candidates · '+newAlerts+' new alerts · '+((Date.now()-started)/1000).toFixed(1)+'s');
+ drawAlerts();perf.elapsed=Date.now()-perf.started;updatePerformance(true);setStatus('Completed · '+candidates.length+' candidates · '+newAlerts+' new alerts · '+((Date.now()-started)/1000).toFixed(1)+'s');
  }catch(e){setStatus('Scan error: '+e.message)}finally{busy=false}
 }
 async function runLoop(){
