@@ -60,6 +60,11 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows coin symbol, 24h price change and RSI(14)</span></div>
 <div class="tfgrid" id="dash"></div>
 </section>
+<section class="panel" id="rsiThresholdPanel">
+<div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="font-size:17px;margin:0">RSI extreme alerts</h2><button id="clearRsiAlertsBtn" type="button">Clear RSI alerts</button></div>
+<div class="small" style="margin-bottom:8px">Independent RSI(14) alerts across all six timeframes. Alerts trigger once when a completed candle crosses up to 80 or above, or down to 20 or below.</div>
+<div id="rsiThresholdAlerts"><div class="empty">No RSI threshold alerts</div></div>
+</section>
 <section class="panel" id="specialPanel">
 <div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Special Setup controls</h2><label class="check" style="margin:0"><input type="checkbox" id="specialEnabled" checked> Enable Special Setup</label></div>
 <div class="small" style="margin:8px 0">Choose which timeframes to monitor. The selected timeframes share the same setup rules and one combined alert display.</div>
@@ -79,7 +84,7 @@ const TFS=['1m','3m','5m','15m','30m','1h'];
 const $=id=>document.getElementById(id);
 const sideDefaults=()=>({bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsiMin:0,rsiMax:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}});
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,sideDefaults()]));
-let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[];
+let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[];
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -102,6 +107,11 @@ function drawAlerts(){
   const el=$(`${tf}-${dir}`);if(!el)continue;
   const arr=alerts[tf][dir];
   el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';
+ }
+ const rsiEl=$('rsiThresholdAlerts');
+ if(rsiEl){
+  const list=[...rsiThresholdAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
+  rsiEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · RSI ${a.level===80?'80+ HIGH':'20− LOW'}</span><span class="change ${a.level===80?'positive':'negative'}">${Number(a.rsi).toFixed(1)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span></div>`).join(''):'<div class="empty">No RSI threshold alerts</div>';
  }
  const specialEl=$('specialAlerts');
  if(specialEl){
@@ -175,6 +185,15 @@ async function scan(){
    const closes=candles.map(x=>x.c),st=supertrend(candles);if(!st)return;
    const last=candles.length-1,prev=last-1;if(prev<0||st.dir[last]==null||st.dir[prev]==null)return;
    const ind=macd(closes),hist=ind.hist,h0=hist.at(-3),h1=hist.at(-2),h2=hist.at(-1);
+   const rsiValues=rsi(closes,14);
+   if(rsiValues&&rsiValues.length>=2){
+    const currentRsi=rsiValues.at(-1),previousRsi=rsiValues.at(-2);
+    const rsiLevel=previousRsi<80&&currentRsi>=80?80:previousRsi>20&&currentRsi<=20?20:null;
+    if(rsiLevel!==null){
+     const rsiKey=coin.symbol+'|'+tf+'|rsi-'+rsiLevel+'|'+candles[last].t;
+     if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,100);newAlerts++}
+    }
+   }
    const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
    const specialBear=specialOn&&st.dir[last]===-1&&h0>h1&&h1>h2&&h2>0;
    const specialBull=specialOn&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
@@ -209,7 +228,7 @@ function start(){if(running)return;running=true;$('startBtn').disabled=true;$('s
 function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearTimeout(timer);timer=null;if(wakeLoop){const wake=wakeLoop;wakeLoop=null;wake()}setStatus('Stopped')}
 function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,specialConfig,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
 function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();specialConfig=x.specialConfig||sideDefaults();for(const tf of TFS)for(const dir of ['bull','bear']){const v=config[tf]?.[dir];if(!v)continue;if(v.rsiMin===undefined||v.rsiMax===undefined){const legacy=Number(v.rsi??50);v.rsiMin=dir==='bull'?legacy:0;v.rsiMax=dir==='bull'?100:legacy}delete v.rsi}for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{config=defaults()}}
-$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('clearSpecialBtn').onclick=()=>{specialAlerts=[];drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();specialConfig=sideDefaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();renderSpecialSettings();save()};
+$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('clearSpecialBtn').onclick=()=>{specialAlerts=[];drawAlerts()};$('clearRsiAlertsBtn').onclick=()=>{rsiThresholdAlerts=[];drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();specialConfig=sideDefaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();renderSpecialSettings();save()};
 load();renderSettings();renderSpecialSettings();renderDash();drawAlerts();
 })();
 </script>
