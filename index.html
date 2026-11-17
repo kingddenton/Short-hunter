@@ -134,18 +134,18 @@ function drawAlerts(){
  for(const tf of TFS)for(const dir of ['bull','bear']){
   const el=$(`${tf}-${dir}`);if(!el)continue;
   const arr=alerts[tf][dir];
-  el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';
+  el.innerHTML=arr.length?arr.slice(0,5).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';
  }
  const rsiEl=$('rsiThresholdAlerts');
  if(rsiEl){
-  const list=[...rsiThresholdAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
+  const list=[...rsiThresholdAlerts].sort((a,b)=>b.at-a.at).slice(0,5);
   rsiEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · RSI ${a.level===80?'80+ HIGH':'20− LOW'}</span><span class="change ${a.level===80?'positive':'negative'}">${Number(a.rsi).toFixed(1)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span></div>`).join(''):'<div class="empty">No RSI threshold alerts</div>';
  }
  const pumpEl=$('pumpAlerts');
- if(pumpEl){const list=[...pumpAlerts].sort((a,b)=>b.at-a.at).slice(0,100);pumpEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · SHORT WATCH</span><span class="change positive">+${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No pump exhaustion alerts</div>';}
+ if(pumpEl){const list=[...pumpAlerts].sort((a,b)=>b.at-a.at).slice(0,5);pumpEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · SHORT WATCH</span><span class="change positive">+${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No pump exhaustion alerts</div>';}
  const specialEl=$('specialAlerts');
  if(specialEl){
-  const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
+  const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,5);
   specialEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · ${a.side==='bull'?'BULLISH':'BEARISH'}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';
  }
 }
@@ -225,7 +225,7 @@ async function scan(){
     const rsiLevel=previousRsi<80&&currentRsi>=80?80:previousRsi>20&&currentRsi<=20?20:null;
     if(rsiLevel!==null){
      const rsiKey=coin.symbol+'|'+tf+'|rsi-'+rsiLevel+'|'+candles[last].t;
-     if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,100);newAlerts++;flashAlertHeading('rsiHeading')}
+     if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,5);newAlerts++;flashAlertHeading('rsiHeading')}
     }
    }
    const pumpKey=coin.symbol+'|'+tf;
@@ -237,7 +237,7 @@ async function scan(){
     if(!pumpActive.has(pumpKey)){
      pumpActive.add(pumpKey);
      const key=coin.symbol+'|'+tf+'|pump-exhaustion|'+candles[last].t;
-     if(!seen.has(key)){seen.add(key);pumpAlerts.unshift({symbol:coin.symbol,tf,change:coin.change,rsi:rsiValues.at(-1),at:candles[last].closeTime});pumpAlerts=pumpAlerts.slice(0,100);newAlerts++;flashAlertHeading('pumpHeading')}
+     if(!seen.has(key)){seen.add(key);pumpAlerts.unshift({symbol:coin.symbol,tf,change:coin.change,rsi:rsiValues.at(-1),at:candles[last].closeTime});pumpAlerts=pumpAlerts.slice(0,5);newAlerts++;flashAlertHeading('pumpHeading')}
     }
    }else pumpActive.delete(pumpKey);
    const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
@@ -245,12 +245,12 @@ async function scan(){
    const specialBull=specialOn&&bullishEligible.has(coin.symbol)&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
    const specialSide=specialBear?'bear':specialBull?'bull':null;
    const activeKey=coin.symbol+'|'+tf+'|'+(specialSide||'none');
-   if(specialSide&&confirmedWithConfig(specialConfig[specialSide],specialSide,closes,ind)){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,100);newAlerts++;flashAlertHeading('specialHeading')}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
+   if(specialSide&&confirmedWithConfig(specialConfig[specialSide],specialSide,closes,ind)){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,5);newAlerts++;flashAlertHeading('specialHeading')}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
    const side=st.dir[prev]===-1&&st.dir[last]===1?'bull':st.dir[prev]===1&&st.dir[last]===-1?'bear':null;
    if(side&& (side!=='bull'||bullishEligible.has(coin.symbol))){
     if(confirmed(tf,side,closes,ind)){
      const key=coin.symbol+'|'+tf+'|'+side+'|'+candles[last].t;
-     if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);alerts[tf][side].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});alerts[tf][side]=alerts[tf][side].slice(0,50);newAlerts++;flashAlertHeading('tfHeading-'+tf)}
+     if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);alerts[tf][side].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});alerts[tf][side]=alerts[tf][side].slice(0,5);newAlerts++;flashAlertHeading('tfHeading-'+tf)}
     }
    }
   }catch(e){/* individual market-data failures do not stop the full scan */}
