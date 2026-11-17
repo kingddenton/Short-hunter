@@ -67,7 +67,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 const BASE='https://fapi.binance.com';
 const TFS=['1m','3m','5m','15m','30m','1h'];
 const $=id=>document.getElementById(id);
-const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,{bull:{rsiOn:true,rsi:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsi:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}}]));
+const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,{bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsiMin:0,rsiMax:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}}]));
 let config=defaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]}]));
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
@@ -75,12 +75,12 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 function renderSettings(){
  $('settings').innerHTML=TFS.map(tf=>`<details><summary>${tf} confirmations</summary><div class="settings">${['bull','bear'].map(dir=>`<div class="panel" style="padding:10px;margin-top:8px"><b class="${dir==='bull'?'good':'danger'}">${dir==='bull'?'Bullish':'Bearish'}</b>
  <label class="check"><input type="checkbox" data-tf="${tf}" data-dir="${dir}" data-k="rsiOn" ${config[tf][dir].rsiOn?'checked':''}> Enable RSI confirmation</label>
- <label>RSI threshold (${dir==='bull'?'at or above':'at or below'})</label><input type="number" min="0" max="100" step=".1" data-tf="${tf}" data-dir="${dir}" data-k="rsi" value="${config[tf][dir].rsi}">
+ <div class="configgrid"><div><label>RSI minimum</label><input type="number" min="0" max="100" step=".1" data-tf="${tf}" data-dir="${dir}" data-k="rsiMin" value="${config[tf][dir].rsiMin}"></div><div><label>RSI maximum</label><input type="number" min="0" max="100" step=".1" data-tf="${tf}" data-dir="${dir}" data-k="rsiMax" value="${config[tf][dir].rsiMax}"></div></div>
  <label class="check"><input type="checkbox" data-tf="${tf}" data-dir="${dir}" data-k="rsiSlope" ${config[tf][dir].rsiSlope?'checked':''}> RSI must be ${dir==='bull'?'rising':'falling'}</label>
  <div class="small" style="margin:8px 0 4px">MACD conditions (12, 26, 9)</div>
  ${[['difZero','DIF above zero','DIF below zero'],['deaZero','DEA above zero','DEA below zero'],['histZero','Histogram above zero','Histogram below zero'],['histRise','Histogram rising','Histogram falling'],['cross','Bullish DIF/DEA cross','Bearish DIF/DEA cross']].map(([k,b,t])=>`<label class="check"><input type="checkbox" data-tf="${tf}" data-dir="${dir}" data-k="${k}" ${config[tf][dir][k]?'checked':''}> ${dir==='bull'?b:t}</label>`).join('')}
  </div>`).join('')}</div></details>`).join('');
- $('settings').querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const {tf,dir,k}=el.dataset;config[tf][dir][k]=el.type==='checkbox'?el.checked:Number(el.value)}));
+ $('settings').querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const {tf,dir,k}=el.dataset;if(el.type==='checkbox'){config[tf][dir][k]=el.checked;return}const value=Math.max(0,Math.min(100,Number(el.value)));el.value=value;const other=k==='rsiMin'?'rsiMax':'rsiMin';if((k==='rsiMin'||k==='rsiMax')&&((k==='rsiMin'&&value>config[tf][dir].rsiMax)||(k==='rsiMax'&&value<config[tf][dir].rsiMin))){config[tf][dir][other]=value;$('settings').querySelector('input[data-tf="'+tf+'"][data-dir="'+dir+'"][data-k="'+other+'"]').value=value}config[tf][dir][k]=value}));
 }
 function renderDash(){
  $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
@@ -116,7 +116,7 @@ function supertrend(candles){
 }
 function confirmed(tf,side,closes,ind){
  const c=config[tf][side],bull=side==='bull',checks=[];
- if(c.rsiOn){const rv=rsi(closes);if(!rv||rv.length<2)return false;const last=rv.at(-1),prev=rv.at(-2);checks.push(bull?last>=c.rsi:last<=c.rsi);if(c.rsiSlope)checks.push(bull?last>prev:last<prev)}
+ if(c.rsiOn){const rv=rsi(closes);if(!rv||rv.length<2)return false;const last=rv.at(-1),prev=rv.at(-2);checks.push(last>=c.rsiMin&&last<=c.rsiMax);if(c.rsiSlope)checks.push(bull?last>prev:last<prev)}
  const m=ind;
  if(c.difZero)checks.push(bull?m.dif.at(-1)>0:m.dif.at(-1)<0);
  if(c.deaZero)checks.push(bull?m.dea.at(-1)>0:m.dea.at(-1)<0);
@@ -166,7 +166,7 @@ async function runLoop(){
 function start(){if(running)return;running=true;$('startBtn').disabled=true;$('stopBtn').disabled=false;runLoop()}
 function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearTimeout(timer);timer=null;if(wakeLoop){const wake=wakeLoop;wakeLoop=null;wake()}setStatus('Stopped')}
 function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
-function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{}}
+function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();for(const tf of TFS)for(const dir of ['bull','bear']){const v=config[tf]?.[dir];if(!v)continue;if(v.rsiMin===undefined||v.rsiMax===undefined){const legacy=Number(v.rsi??50);v.rsiMin=dir==='bull'?legacy:0;v.rsiMax=dir==='bull'?100:legacy}delete v.rsi}for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{config=defaults()}}
 $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();save()};
 load();renderSettings();renderDash();drawAlerts();
 })();
