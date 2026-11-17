@@ -43,7 +43,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
  <div class="field"><label>Positive / negative 24h threshold (%)</label><input id="threshold" type="number" value="10" step=".1"></div>
  <div class="field"><label>Top gainers and bottom losers (N)</label><select id="topN"><option>10</option><option>20</option><option>50</option><option>100</option><option>200</option></select></div>
  <div class="field"><label>Minimum 24h quote volume (USDT)</label><input id="minVolume" type="number" value="2000000" step="100000"></div>
- <div class="field"><label>Refresh interval</label><select id="refresh"><option value="60">60 seconds</option><option value="120">120 seconds</option><option value="180">180 seconds</option><option value="300">300 seconds</option></select></div>
+ <div class="field"><label>Refresh interval</label><select id="refresh"><option value="continuous">Continuous (immediately after each scan)</option><option value="60">60 seconds</option><option value="120">120 seconds</option><option value="180">180 seconds</option><option value="300">300 seconds</option></select></div>
 </div>
 <div class="row" style="margin-top:12px">
  <button class="primary" id="startBtn">Start scanning</button><button class="stop" id="stopBtn" disabled>Stop</button><button id="scanBtn">Scan once</button><button id="clearBtn">Clear alerts</button><button id="saveBtn">Save settings</button><button id="resetBtn">Reset settings</button>
@@ -68,7 +68,7 @@ const BASE='https://fapi.binance.com';
 const TFS=['1m','3m','5m','15m','30m','1h'];
 const $=id=>document.getElementById(id);
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,{bull:{rsiOn:true,rsi:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsi:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}}]));
-let config=defaults(),running=false,timer=null,busy=false,seen=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]}]));
+let config=defaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]}]));
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -152,8 +152,19 @@ async function scan(){
  drawAlerts();setStatus('Completed · '+candidates.length+' candidates · '+newAlerts+' new alerts · '+((Date.now()-started)/1000).toFixed(1)+'s');
  }catch(e){setStatus('Scan error: '+e.message)}finally{busy=false}
 }
-function start(){if(running)return;running=true;$('startBtn').disabled=true;$('stopBtn').disabled=false;scan();timer=setInterval(scan,Math.max(30,Number($('refresh').value)||60)*1000)}
-function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearInterval(timer);timer=null;setStatus('Stopped')}
+async function runLoop(){
+ while(running){
+  await scan();
+  if(!running)break;
+  if($('refresh').value==='continuous')continue;
+  await new Promise(resolve=>{
+   wakeLoop=resolve;
+   timer=setTimeout(()=>{timer=null;wakeLoop=null;resolve()},Math.max(30,Number($('refresh').value)||60)*1000);
+  });
+ }
+}
+function start(){if(running)return;running=true;$('startBtn').disabled=true;$('stopBtn').disabled=false;runLoop()}
+function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearTimeout(timer);timer=null;if(wakeLoop){const wake=wakeLoop;wakeLoop=null;wake()}setStatus('Stopped')}
 function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
 function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{}}
 $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();save()};
