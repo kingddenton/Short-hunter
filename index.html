@@ -145,7 +145,7 @@ function confirmedWithConfig(c,side,closes,ind){
  if(c.deaZero)checks.push(bull?m.dea.at(-1)>0:m.dea.at(-1)<0);
  if(c.histZero)checks.push(bull?m.hist.at(-1)>0:m.hist.at(-1)<0);
  if(c.histRise)checks.push(bull?m.hist.at(-1)>m.hist.at(-2):m.hist.at(-1)<m.hist.at(-2));
- if(c.cross)checks.push(bull?(m.dif.at(-2)<=m.dea.at(-2)&&m.dif.at(-1)>m.dea.at(-1)):(m.dif.at(-2)>=m.dea.at(-2)&&m.dif.at(-1)<m.dif.at(-1)));
+ if(c.cross)checks.push(bull?(m.dif.at(-2)<=m.dea.at(-2)&&m.dif.at(-1)>m.dea.at(-1)):(m.dif.at(-2)>=m.dea.at(-2)&&m.dif.at(-1)<m.dea.at(-1)));
  return checks.every(Boolean);
 }
 function confirmed(tf,side,closes,ind){return confirmedWithConfig(config[tf][side],side,closes,ind)}
