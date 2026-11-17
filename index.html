@@ -95,8 +95,18 @@ function renderDash(){
  $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
  
 }
-function drawAlerts(){for(const tf of TFS)for(const dir of ['bull','bear']){const el=$(`${tf}-${dir}`);if(!el)continue;const arr=alerts[tf][dir];el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';} }
-const specialEl=$('specialAlerts');if(specialEl){const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,100);specialEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · ${a.side==='bull'?'BULLISH':'BEARISH'}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';}}
+function drawAlerts(){
+ for(const tf of TFS)for(const dir of ['bull','bear']){
+  const el=$(`${tf}-${dir}`);if(!el)continue;
+  const arr=alerts[tf][dir];
+  el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';
+ }
+ const specialEl=$('specialAlerts');
+ if(specialEl){
+  const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
+  specialEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · ${a.side==='bull'?'BULLISH':'BEARISH'}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';
+ }
+}
 async function getJson(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 async function universe(){
  const tickers=await getJson(BASE+'/fapi/v1/ticker/24hr');
