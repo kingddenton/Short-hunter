@@ -65,6 +65,16 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div class="small" style="margin-bottom:8px">Independent RSI(14) alerts across all six timeframes. Alerts trigger once when a completed candle crosses up to 80 or above, or down to 20 or below.</div>
 <div id="rsiThresholdAlerts"><div class="empty">No RSI threshold alerts</div></div>
 </section>
+<section class="panel" id="pumpExhaustionPanel">
+<div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Pump Exhaustion — Short Watch</h2><label class="check" style="margin:0"><input type="checkbox" id="pumpEnabled" checked> Enable alert</label></div>
+<div class="small" style="margin:8px 0">Flags coins after a substantial 24h rise when bearish MACD momentum is developing while RSI remains elevated. All conditions use completed candles.</div>
+<div class="grid">
+ <div class="field"><label>Minimum 24h price increase (%)</label><input id="pumpMinChange" type="number" min="0" step=".1" value="10"></div>
+ <div class="field"><label>Minimum RSI(14)</label><input id="pumpMinRsi" type="number" min="0" max="100" step=".1" value="65"></div>
+</div>
+<div class="row" style="justify-content:space-between;margin:14px 0 8px"><span class="small">Required: 24h change meets threshold · histogram below zero and shrinking for 3 completed bars · RSI meets minimum</span><button id="clearPumpAlertsBtn" type="button">Clear alerts</button></div>
+<div id="pumpAlerts"><div class="empty">No pump exhaustion alerts</div></div>
+</section>
 <section class="panel" id="specialPanel">
 <div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Special Setup controls</h2><label class="check" style="margin:0"><input type="checkbox" id="specialEnabled" checked> Enable Special Setup</label></div>
 <div class="small" style="margin:8px 0">Choose which timeframes to monitor. The selected timeframes share the same setup rules and one combined alert display.</div>
@@ -84,7 +94,7 @@ const TFS=['1m','3m','5m','15m','30m','1h'];
 const $=id=>document.getElementById(id);
 const sideDefaults=()=>({bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsiMin:0,rsiMax:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}});
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,sideDefaults()]));
-let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[];
+let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[],pumpAlerts=[],pumpActive=new Set();
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -113,6 +123,8 @@ function drawAlerts(){
   const list=[...rsiThresholdAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
   rsiEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · RSI ${a.level===80?'80+ HIGH':'20− LOW'}</span><span class="change ${a.level===80?'positive':'negative'}">${Number(a.rsi).toFixed(1)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span></div>`).join(''):'<div class="empty">No RSI threshold alerts</div>';
  }
+ const pumpEl=$('pumpAlerts');
+ if(pumpEl){const list=[...pumpAlerts].sort((a,b)=>b.at-a.at).slice(0,100);pumpEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · SHORT WATCH</span><span class="change positive">+${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No pump exhaustion alerts</div>';}
  const specialEl=$('specialAlerts');
  if(specialEl){
   const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,100);
@@ -194,6 +206,18 @@ async function scan(){
      if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,100);newAlerts++}
     }
    }
+   const pumpKey=coin.symbol+'|'+tf;
+   const pumpOn=$('pumpEnabled').checked;
+   const pumpMinChange=Math.max(0,Number($('pumpMinChange').value)||0);
+   const pumpMinRsi=Math.max(0,Math.min(100,Number($('pumpMinRsi').value)||0));
+   const pumpMatch=pumpOn&&coin.change>=pumpMinChange&&h0<h1&&h1<h2&&h2<0&&rsiValues&&rsiValues.at(-1)>=pumpMinRsi;
+   if(pumpMatch){
+    if(!pumpActive.has(pumpKey)){
+     pumpActive.add(pumpKey);
+     const key=coin.symbol+'|'+tf+'|pump-exhaustion|'+candles[last].t;
+     if(!seen.has(key)){seen.add(key);pumpAlerts.unshift({symbol:coin.symbol,tf,change:coin.change,rsi:rsiValues.at(-1),at:candles[last].closeTime});pumpAlerts=pumpAlerts.slice(0,100);newAlerts++}
+    }
+   }else pumpActive.delete(pumpKey);
    const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
    const specialBear=specialOn&&st.dir[last]===-1&&h0>h1&&h1>h2&&h2>0;
    const specialBull=specialOn&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
@@ -226,9 +250,9 @@ async function runLoop(){
 }
 function start(){if(running)return;running=true;$('startBtn').disabled=true;$('stopBtn').disabled=false;runLoop()}
 function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearTimeout(timer);timer=null;if(wakeLoop){const wake=wakeLoop;wakeLoop=null;wake()}setStatus('Stopped')}
-function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,specialConfig,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
-function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();specialConfig=x.specialConfig||sideDefaults();for(const tf of TFS)for(const dir of ['bull','bear']){const v=config[tf]?.[dir];if(!v)continue;if(v.rsiMin===undefined||v.rsiMax===undefined){const legacy=Number(v.rsi??50);v.rsiMin=dir==='bull'?legacy:0;v.rsiMax=dir==='bull'?100:legacy}delete v.rsi}for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{config=defaults()}}
-$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('clearSpecialBtn').onclick=()=>{specialAlerts=[];drawAlerts()};$('clearRsiAlertsBtn').onclick=()=>{rsiThresholdAlerts=[];drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();specialConfig=sideDefaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();renderSpecialSettings();save()};
+function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,specialConfig,pumpMinChange:$('pumpMinChange').value,pumpMinRsi:$('pumpMinRsi').value,pumpEnabled:$('pumpEnabled').checked,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
+function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();specialConfig=x.specialConfig||sideDefaults();for(const tf of TFS)for(const dir of ['bull','bear']){const v=config[tf]?.[dir];if(!v)continue;if(v.rsiMin===undefined||v.rsiMax===undefined){const legacy=Number(v.rsi??50);v.rsiMin=dir==='bull'?legacy:0;v.rsiMax=dir==='bull'?100:legacy}delete v.rsi}if(x.pumpMinChange!==undefined)$('pumpMinChange').value=x.pumpMinChange;if(x.pumpMinRsi!==undefined)$('pumpMinRsi').value=x.pumpMinRsi;if(x.pumpEnabled!==undefined)$('pumpEnabled').checked=x.pumpEnabled;for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{config=defaults()}}
+$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();pumpActive.clear();pumpAlerts=[];for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('clearSpecialBtn').onclick=()=>{specialAlerts=[];drawAlerts()};$('clearPumpAlertsBtn').onclick=()=>{pumpAlerts=[];drawAlerts()};$('clearRsiAlertsBtn').onclick=()=>{rsiThresholdAlerts=[];drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();specialConfig=sideDefaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;$('pumpMinChange').value=10;$('pumpMinRsi').value=65;$('pumpEnabled').checked=true;renderSettings();renderSpecialSettings();save()};
 load();renderSettings();renderSpecialSettings();renderDash();drawAlerts();
 })();
 </script>
