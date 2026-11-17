@@ -119,6 +119,8 @@ const sideDefaults=()=>({bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,di
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,sideDefaults()]));
 let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[],pumpAlerts=[],pumpActive=new Set();
 let exchangeSymbols=null;
+let rateLimitUntil=Number(localStorage.getItem('shortHunterRateLimitUntil')||0);
+let rateLimitHalt=Date.now()<rateLimitUntil;
 let perf={requests:0,active:0,peak:0,errors:0,rateLimited:0,weight:null,lastStatus:'—',started:0,elapsed:0,byEndpoint:{},lastUpdate:0};
 const setStatus=s=>{$('status').textContent=s};
 function resetPerformance(){perf={requests:0,active:0,peak:0,errors:0,rateLimited:0,weight:null,lastStatus:'—',started:Date.now(),elapsed:0,byEndpoint:{},lastUpdate:0};renderPerformance()}
@@ -163,10 +165,23 @@ function drawAlerts(){
  }
 }
 async function getJson(url){
+ if(rateLimitHalt||Date.now()<rateLimitUntil)throw new Error('Binance rate-limit cooldown active until '+new Date(rateLimitUntil).toLocaleTimeString());
  const endpoint=url.includes('/ticker/24hr')?'ticker':url.includes('/exchangeInfo')?'exchangeInfo':(url.match(/interval=([^&]+)/)||[])[1]||'other';
  perf.requests++;perf.byEndpoint[endpoint]=(perf.byEndpoint[endpoint]||0)+1;perf.active++;perf.peak=Math.max(perf.peak,perf.active);
  try{const r=await fetch(url);perf.lastStatus=r.status;const used=r.headers.get('x-mbx-used-weight-1m');if(used!==null)perf.weight=used;
-  if(!r.ok){perf.errors++;if(r.status===429||r.status===418)perf.rateLimited++;updatePerformance();throw new Error('HTTP '+r.status)}
+  if(!r.ok){
+   perf.errors++;
+   if(r.status===429||r.status===418){
+    perf.rateLimited++;rateLimitHalt=true;
+    const retrySeconds=Number(r.headers.get('Retry-After'));
+    const fallback=r.status===418?900:60;
+    rateLimitUntil=Date.now()+(Number.isFinite(retrySeconds)&&retrySeconds>0?retrySeconds:fallback)*1000;
+    localStorage.setItem('shortHunterRateLimitUntil',String(rateLimitUntil));
+    running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;
+    setStatus('Binance HTTP '+r.status+' · scanner paused until '+new Date(rateLimitUntil).toLocaleTimeString());
+   }
+   updatePerformance();throw new Error('HTTP '+r.status)
+  }
   updatePerformance();return await r.json();
  }catch(e){if(!String(e.message||e).startsWith('HTTP '))perf.errors++;updatePerformance();throw e}
  finally{perf.active--;perf.elapsed=Date.now()-perf.started;updatePerformance()}
@@ -185,7 +200,7 @@ async function universe(){
  if(mode!=='percentage')for(const t of num)if(chosen.has(t.symbol))chosen.get(t.symbol).sources.push('Numerical');else chosen.set(t.symbol,{...t,sources:['Numerical']});
  return [...chosen.values()];
 }
-async function mapLimit(items,limit,fn){let i=0;const workers=Array.from({length:Math.min(limit,items.length)},async()=>{while(i<items.length){const ix=i++;await fn(items[ix],ix)}});await Promise.all(workers)}
+async function mapLimit(items,limit,fn){let i=0;const workers=Array.from({length:Math.min(limit,items.length)},async()=>{while(i<items.length&&!rateLimitHalt){const ix=i++;await fn(items[ix],ix)}});await Promise.all(workers)}
 function rsi(values,period=14){if(values.length<period+1)return null;let gain=0,loss=0;for(let i=1;i<=period;i++){const d=values[i]-values[i-1];if(d>0)gain+=d;else loss-=d}let ag=gain/period,al=loss/period;const out=[al===0?100:100-100/(1+ag/al)];for(let i=period+1;i<values.length;i++){const d=values[i]-values[i-1];ag=(ag*(period-1)+Math.max(d,0))/period;al=(al*(period-1)+Math.max(-d,0))/period;out.push(al===0?100:100-100/(1+ag/al))}return out}
 function ema(values,p){const k=2/(p+1),out=[];let v=values[0];out.push(v);for(let i=1;i<values.length;i++){v=values[i]*k+v*(1-k);out.push(v)}return out}
 function macd(values){const e12=ema(values,12),e26=ema(values,26),dif=values.map((_,i)=>e12[i]-e26[i]),dea=ema(dif,9),hist=dif.map((v,i)=>v-dea[i]);return {dif,dea,hist}}
@@ -278,7 +293,7 @@ async function scan(){
   checked++;if(checked%30===0)setStatus('Scanning '+checked+'/'+tasks.length+' · '+newAlerts+' new alerts');
  });
  drawAlerts();perf.elapsed=Date.now()-perf.started;updatePerformance(true);setStatus('Completed · '+candidates.length+' candidates · '+newAlerts+' new alerts · '+((Date.now()-started)/1000).toFixed(1)+'s');
- }catch(e){setStatus('Scan error: '+e.message)}finally{busy=false}
+ }catch(e){setStatus(rateLimitHalt?'Binance rate limit: scanner paused · '+e.message:'Scan error: '+e.message)}finally{busy=false}
 }
 async function runLoop(){
  while(running){
