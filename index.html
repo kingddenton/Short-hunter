@@ -200,7 +200,11 @@ async function scan(){
  if(busy)return;busy=true;const started=Date.now();
  try{
  setStatus('Loading market universe…');
- const candidates=await universe();setStatus('Scanning '+candidates.length+' unique candidates…');
+ const candidates=await universe();setStatus('Applying 4H bullish RSI gate to '+candidates.length+' universe candidates…');
+ // Shared bullish gate immediately after universe selection. Use the latest completed 4H candle only.
+ const bullishEligible=new Set();
+ await mapLimit(candidates,8,async coin=>{try{const raw4h=await getJson(BASE+'/fapi/v1/klines?symbol='+coin.symbol+'&interval=4h&limit=120');const completed4h=raw4h.slice(0,-1).map(k=>+k[4]);const rsi4h=rsi(completed4h,14);if(rsi4h&&rsi4h.length&&rsi4h.at(-1)>50)bullishEligible.add(coin.symbol)}catch(e){/* unavailable 4H data fails the bullish gate only */}});
+ setStatus('Scanning '+candidates.length+' candidates · '+bullishEligible.size+' eligible for bullish alerts…');
  let checked=0,newAlerts=0;const tasks=[];
  for(const coin of candidates)for(const tf of TFS)tasks.push({coin,tf});
  await mapLimit(tasks,8,async({coin,tf})=>{
@@ -234,12 +238,12 @@ async function scan(){
    }else pumpActive.delete(pumpKey);
    const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
    const specialBear=specialOn&&st.dir[last]===-1&&h0>h1&&h1>h2&&h2>0;
-   const specialBull=specialOn&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
+   const specialBull=specialOn&&bullishEligible.has(coin.symbol)&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
    const specialSide=specialBear?'bear':specialBull?'bull':null;
    const activeKey=coin.symbol+'|'+tf+'|'+(specialSide||'none');
    if(specialSide&&confirmedWithConfig(specialConfig[specialSide],specialSide,closes,ind)){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,100);newAlerts++}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
    const side=st.dir[prev]===-1&&st.dir[last]===1?'bull':st.dir[prev]===1&&st.dir[last]===-1?'bear':null;
-   if(side){
+   if(side&& (side!=='bull'||bullishEligible.has(coin.symbol))){
     if(confirmed(tf,side,closes,ind)){
      const key=coin.symbol+'|'+tf+'|'+side+'|'+candles[last].t;
      if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);alerts[tf][side].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});alerts[tf][side]=alerts[tf][side].slice(0,50);newAlerts++}
