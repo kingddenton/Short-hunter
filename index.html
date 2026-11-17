@@ -42,7 +42,7 @@ details{border:1px solid var(--line);border-radius:10px;background:#10192b;paddi
 .small{font-size:11px;color:var(--muted)}.danger{color:var(--red)}.good{color:var(--green)}
 footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center}
 @media(max-width:520px){header{padding:14px 12px}h1{font-size:19px}main{padding:10px}.panel{padding:11px}.sides{grid-template-columns:1fr 1fr}.side{padding:8px}.alert{font-size:12px}}
-</style>
+\n@keyframes alertHeadingFlash{0%,100%{background-color:transparent;color:inherit;text-shadow:none}25%,75%{background-color:#5a4218;color:#fff2bf;text-shadow:0 0 12px #f2c46d}}\n.alert-flash{animation:alertHeadingFlash .55s ease-in-out 4;border-radius:7px;outline:1px solid #f2c46d}\n</style>
 </head>
 <body>
 <header><h1>SHORT HUNTER</h1><div class="sub">Binance USDⓈ-M perpetuals · Supertrend reversal + MACD Special Setup scanner · Closed candles only</div></header>
@@ -68,11 +68,11 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div class="settings" id="settings"></div>
 </section>
 <section id="reversalSection">
-<div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows coin symbol, 24h price change and RSI(14)</span></div>
+<div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 id="reversalHeading" style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows coin symbol, 24h price change and RSI(14)</span></div>
 <div class="tfgrid" id="dash"></div>
 </section>
 <section class="panel" id="rsiThresholdPanel">
-<div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="font-size:17px;margin:0">RSI extreme alerts</h2><button id="clearRsiAlertsBtn" type="button">Clear RSI alerts</button></div>
+<div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 id="rsiHeading" style="font-size:17px;margin:0">RSI extreme alerts</h2><button id="clearRsiAlertsBtn" type="button">Clear RSI alerts</button></div>
 <div class="small" style="margin-bottom:8px">Independent RSI(14) alerts on the timeframes selected below. Alerts trigger once when a completed candle crosses up to 80 or above, or down to 20 or below.</div>
 <div class="row" id="rsiExtremeTfControls" style="margin:8px 0 12px">
 <label class="check"><input type="checkbox" class="rsiExtremeTf" value="1m" checked> 1m</label><label class="check"><input type="checkbox" class="rsiExtremeTf" value="3m" checked> 3m</label><label class="check"><input type="checkbox" class="rsiExtremeTf" value="5m" checked> 5m</label><label class="check"><input type="checkbox" class="rsiExtremeTf" value="15m" checked> 15m</label><label class="check"><input type="checkbox" class="rsiExtremeTf" value="30m" checked> 30m</label><label class="check"><input type="checkbox" class="rsiExtremeTf" value="1h" checked> 1h</label>
@@ -80,7 +80,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div id="rsiThresholdAlerts"><div class="empty">No RSI threshold alerts</div></div>
 </section>
 <section class="panel" id="pumpExhaustionPanel">
-<div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Pump Exhaustion — Short Watch</h2><label class="check" style="margin:0"><input type="checkbox" id="pumpEnabled" checked> Enable alert</label></div>
+<div class="row" style="justify-content:space-between"><h2 id="pumpHeading" style="font-size:17px;margin:0">Pump Exhaustion — Short Watch</h2><label class="check" style="margin:0"><input type="checkbox" id="pumpEnabled" checked> Enable alert</label></div>
 <div class="small" style="margin:8px 0">Flags coins after a substantial 24h rise when bearish MACD momentum is developing while RSI remains elevated. All conditions use completed candles.</div>
 <div class="grid">
  <div class="field"><label>Minimum 24h price increase (%)</label><input id="pumpMinChange" type="number" min="0" step=".1" value="10"></div>
@@ -90,7 +90,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div id="pumpAlerts"><div class="empty">No pump exhaustion alerts</div></div>
 </section>
 <section class="panel" id="specialPanel">
-<div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Special Setup controls</h2><label class="check" style="margin:0"><input type="checkbox" id="specialEnabled" checked> Enable Special Setup</label></div>
+<div class="row" style="justify-content:space-between"><h2 id="specialHeading" style="font-size:17px;margin:0">Special Setup controls</h2><label class="check" style="margin:0"><input type="checkbox" id="specialEnabled" checked> Enable Special Setup</label></div>
 <div class="small" style="margin:8px 0">Choose which timeframes to monitor. The selected timeframes share the same setup rules and one combined alert display.</div>
 <div class="row" id="specialTfControls">
 <label class="check"><input type="checkbox" class="specialTf" value="1m" checked> 1m</label><label class="check"><input type="checkbox" class="specialTf" value="3m" checked> 3m</label><label class="check"><input type="checkbox" class="specialTf" value="5m" checked> 5m</label><label class="check"><input type="checkbox" class="specialTf" value="15m" checked> 15m</label><label class="check"><input type="checkbox" class="specialTf" value="30m" checked> 30m</label><label class="check"><input type="checkbox" class="specialTf" value="1h" checked> 1h</label>
@@ -111,6 +111,10 @@ const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,sideDefaults()]));
 let config=defaults(),specialConfig=sideDefaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[],rsiThresholdAlerts=[],pumpAlerts=[],pumpActive=new Set();
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
+let alertAudio=null,lastAlertSoundAt=0;
+function unlockAlertAudio(){try{const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;if(!alertAudio)alertAudio=new Ctx();if(alertAudio.state==='suspended')alertAudio.resume()}catch(e){}}
+function playNewAlertSound(){const now=Date.now();if(now-lastAlertSoundAt<650)return;lastAlertSoundAt=now;try{if(!alertAudio)unlockAlertAudio();if(!alertAudio||alertAudio.state!=='running')return;const t=alertAudio.currentTime,osc=alertAudio.createOscillator(),gain=alertAudio.createGain();osc.type='sine';osc.frequency.setValueAtTime(740,t);osc.frequency.setValueAtTime(988,t+.11);gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.12,t+.025);gain.gain.exponentialRampToValueAtTime(.0001,t+.28);osc.connect(gain);gain.connect(alertAudio.destination);osc.start(t);osc.stop(t+.3)}catch(e){}}
+function flashAlertHeading(id){const el=$(id);if(!el)return;el.classList.remove('alert-flash');void el.offsetWidth;el.classList.add('alert-flash');el.addEventListener('animationend',()=>el.classList.remove('alert-flash'),{once:true});playNewAlertSound()}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function renderSettings(){
  $('settings').innerHTML=TFS.map(tf=>`<details><summary>${tf} confirmations</summary><div class="settings">${['bull','bear'].map(dir=>`<div class="panel" style="padding:10px;margin-top:8px"><b class="${dir==='bull'?'good':'danger'}">${dir==='bull'?'Bullish':'Bearish'}</b>
@@ -123,7 +127,7 @@ function renderSettings(){
  $('settings').querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const {tf,dir,k}=el.dataset;if(el.type==='checkbox'){config[tf][dir][k]=el.checked;return}const value=Math.max(0,Math.min(100,Number(el.value)));el.value=value;const other=k==='rsiMin'?'rsiMax':'rsiMin';if((k==='rsiMin'||k==='rsiMax')&&((k==='rsiMin'&&value>config[tf][dir].rsiMax)||(k==='rsiMax'&&value<config[tf][dir].rsiMin))){config[tf][dir][other]=value;$('settings').querySelector('input[data-tf="'+tf+'"][data-dir="'+dir+'"][data-k="'+other+'"]').value=value}config[tf][dir][k]=value}));
 }
 function renderDash(){
- $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
+ $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span id="tfHeading-${tf}">${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
  
 }
 function drawAlerts(){
@@ -221,7 +225,7 @@ async function scan(){
     const rsiLevel=previousRsi<80&&currentRsi>=80?80:previousRsi>20&&currentRsi<=20?20:null;
     if(rsiLevel!==null){
      const rsiKey=coin.symbol+'|'+tf+'|rsi-'+rsiLevel+'|'+candles[last].t;
-     if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,100);newAlerts++}
+     if(!seen.has(rsiKey)){seen.add(rsiKey);rsiThresholdAlerts.unshift({symbol:coin.symbol,tf,level:rsiLevel,rsi:currentRsi,change:coin.change,at:candles[last].closeTime});rsiThresholdAlerts=rsiThresholdAlerts.slice(0,100);newAlerts++;flashAlertHeading('rsiHeading')}
     }
    }
    const pumpKey=coin.symbol+'|'+tf;
@@ -233,7 +237,7 @@ async function scan(){
     if(!pumpActive.has(pumpKey)){
      pumpActive.add(pumpKey);
      const key=coin.symbol+'|'+tf+'|pump-exhaustion|'+candles[last].t;
-     if(!seen.has(key)){seen.add(key);pumpAlerts.unshift({symbol:coin.symbol,tf,change:coin.change,rsi:rsiValues.at(-1),at:candles[last].closeTime});pumpAlerts=pumpAlerts.slice(0,100);newAlerts++}
+     if(!seen.has(key)){seen.add(key);pumpAlerts.unshift({symbol:coin.symbol,tf,change:coin.change,rsi:rsiValues.at(-1),at:candles[last].closeTime});pumpAlerts=pumpAlerts.slice(0,100);newAlerts++;flashAlertHeading('pumpHeading')}
     }
    }else pumpActive.delete(pumpKey);
    const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
@@ -241,12 +245,12 @@ async function scan(){
    const specialBull=specialOn&&bullishEligible.has(coin.symbol)&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
    const specialSide=specialBear?'bear':specialBull?'bull':null;
    const activeKey=coin.symbol+'|'+tf+'|'+(specialSide||'none');
-   if(specialSide&&confirmedWithConfig(specialConfig[specialSide],specialSide,closes,ind)){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,100);newAlerts++}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
+   if(specialSide&&confirmedWithConfig(specialConfig[specialSide],specialSide,closes,ind)){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,100);newAlerts++;flashAlertHeading('specialHeading')}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
    const side=st.dir[prev]===-1&&st.dir[last]===1?'bull':st.dir[prev]===1&&st.dir[last]===-1?'bear':null;
    if(side&& (side!=='bull'||bullishEligible.has(coin.symbol))){
     if(confirmed(tf,side,closes,ind)){
      const key=coin.symbol+'|'+tf+'|'+side+'|'+candles[last].t;
-     if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);alerts[tf][side].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});alerts[tf][side]=alerts[tf][side].slice(0,50);newAlerts++}
+     if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);alerts[tf][side].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});alerts[tf][side]=alerts[tf][side].slice(0,50);newAlerts++;flashAlertHeading('tfHeading-'+tf)}
     }
    }
   }catch(e){/* individual market-data failures do not stop the full scan */}
