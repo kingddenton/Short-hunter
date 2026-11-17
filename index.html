@@ -24,7 +24,7 @@ input[type=number]{width:100%}select{width:100%}button{cursor:pointer;font-weigh
 .tfhead{padding:11px 13px;background:var(--panel2);display:flex;justify-content:space-between;align-items:center;font-weight:750}
 .sides{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
 .side{background:var(--panel);padding:10px;min-height:92px}.side h3{font-size:12px;margin:0 0 8px;letter-spacing:.6px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
-.alert{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.change{font-variant-numeric:tabular-nums;font-weight:700}.bull .change{color:var(--green)}.bear .change{color:var(--red)}
+.alert{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.change{font-variant-numeric:tabular-nums;font-weight:700}.change.positive{color:var(--green)}.change.negative{color:var(--red)}
 .empty{color:#7485a3;font-size:12px;padding:6px 0}.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px}
 details{border:1px solid var(--line);border-radius:10px;background:#10192b;padding:10px}summary{cursor:pointer;font-weight:700}
 .configgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.configgrid .wide{grid-column:1/-1}
@@ -57,7 +57,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div class="settings" id="settings"></div>
 </section>
 <section>
-<div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows only coin symbol and 24h price change</span></div>
+<div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows coin symbol, 24h price change and RSI(14)</span></div>
 <div class="tfgrid" id="dash"></div>
 </section>
 </main>
@@ -85,7 +85,7 @@ function renderSettings(){
 function renderDash(){
  $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
 }
-function drawAlerts(){for(const tf of TFS)for(const dir of ['bull','bear']){const el=$(`${tf}-${dir}`);if(!el)continue;const arr=alerts[tf][dir];el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';}}
+function drawAlerts(){for(const tf of TFS)for(const dir of ['bull','bear']){const el=$(`${tf}-${dir}`);if(!el)continue;const arr=alerts[tf][dir];el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';}}
 async function getJson(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 async function universe(){
  const tickers=await getJson(BASE+'/fapi/v1/ticker/24hr');
