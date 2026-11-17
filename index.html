@@ -60,9 +60,14 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Live reversal alerts</h2><span class="small">Each alert shows coin symbol, 24h price change and RSI(14)</span></div>
 <div class="tfgrid" id="dash"></div>
 </section>
-<section>
-<div class="row" style="justify-content:space-between;margin:2px 0 10px"><h2 style="font-size:17px;margin:0">Special Setup alerts</h2><span class="small">Independent alerts · Supertrend trend + shrinking opposite-side histogram</span></div>
-<div class="tfgrid" id="specialDash"></div>
+<section class="panel" id="specialPanel">
+<div class="row" style="justify-content:space-between"><h2 style="font-size:17px;margin:0">Special Setup controls</h2><label class="check" style="margin:0"><input type="checkbox" id="specialEnabled" checked> Enable Special Setup</label></div>
+<div class="small" style="margin:8px 0">Choose which timeframes to monitor. The selected timeframes share the same setup rules and one combined alert display.</div>
+<div class="row" id="specialTfControls">
+<label class="check"><input type="checkbox" class="specialTf" value="1m" checked> 1m</label><label class="check"><input type="checkbox" class="specialTf" value="3m" checked> 3m</label><label class="check"><input type="checkbox" class="specialTf" value="5m" checked> 5m</label><label class="check"><input type="checkbox" class="specialTf" value="15m" checked> 15m</label><label class="check"><input type="checkbox" class="specialTf" value="30m" checked> 30m</label><label class="check"><input type="checkbox" class="specialTf" value="1h" checked> 1h</label>
+</div>
+<div class="row" style="justify-content:space-between;margin:14px 0 8px"><h2 style="font-size:16px;margin:0">Special Setup alerts</h2><button id="clearSpecialBtn" type="button">Clear special alerts</button></div>
+<div id="specialAlerts"><div class="empty">No active setups</div></div>
 </section>
 </main>
 <footer>Market data is fetched from Binance public Futures endpoints. Scanning load depends on the size of the selected universes and Binance rate limits.</footer>
@@ -72,7 +77,7 @@ const BASE='https://fapi.binance.com';
 const TFS=['1m','3m','5m','15m','30m','1h'];
 const $=id=>document.getElementById(id);
 const defaults=()=>Object.fromEntries(TFS.map(tf=>[tf,{bull:{rsiOn:true,rsiMin:50,rsiMax:100,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false},bear:{rsiOn:true,rsiMin:0,rsiMax:50,rsiSlope:false,difZero:false,deaZero:false,histZero:false,histRise:false,cross:false}}]));
-let config=defaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ]));
+let config=defaults(),running=false,timer=null,wakeLoop=null,busy=false,seen=new Set(),specialActive=new Set(),alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ])),specialAlerts=[];
 let exchangeSymbols=null;
 const setStatus=s=>{$('status').textContent=s};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -88,9 +93,10 @@ function renderSettings(){
 }
 function renderDash(){
  $('dash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Closed-candle ST flips</span></div><div class="sides"><div class="side bull"><h3>BULLISH</h3><div id="${tf}-bull"></div></div><div class="side bear"><h3>BEARISH</h3><div id="${tf}-bear"></div></div></div></div>`).join('');
- $('specialDash').innerHTML=TFS.map(tf=>`<div class="tfcard"><div class="tfhead"><span>${tf}</span><span class="small">Special setup · 3 completed candles</span></div><div class="sides"><div class="side bull"><h3>BULLISH SPECIAL</h3><div id="special-${tf}-bull"></div></div><div class="side bear"><h3>BEARISH SPECIAL</h3><div id="special-${tf}-bear"></div></div></div></div>`).join('');
+ 
 }
-function drawAlerts(){for(const tf of TFS)for(const dir of ['bull','bear']){const el=$(`${tf}-${dir}`);if(!el)continue;const arr=alerts[tf][dir];el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';const specialEl=$(`special-${tf}-${dir}`);if(specialEl){const special=specialAlerts[tf][dir];specialEl.innerHTML=special.length?special.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';}}}
+function drawAlerts(){for(const tf of TFS)for(const dir of ['bull','bear']){const el=$(`${tf}-${dir}`);if(!el)continue;const arr=alerts[tf][dir];el.innerHTML=arr.length?arr.slice(0,30).map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No fresh reversals</div>';} }
+const specialEl=$('specialAlerts');if(specialEl){const list=[...specialAlerts].sort((a,b)=>b.at-a.at).slice(0,100);specialEl.innerHTML=list.length?list.map(a=>`<div class="alert"><span class="symbol">${esc(a.symbol)}</span><span class="small">${a.tf} · ${a.side==='bull'?'BULLISH':'BEARISH'}</span><span class="change ${a.change>=0?'positive':'negative'}">${a.change>=0?'+':''}${a.change.toFixed(2)}%</span><span class="small">RSI ${Number(a.rsi).toFixed(1)}</span></div>`).join(''):'<div class="empty">No active setups</div>';}}
 async function getJson(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 async function universe(){
  const tickers=await getJson(BASE+'/fapi/v1/ticker/24hr');
@@ -145,11 +151,12 @@ async function scan(){
    const closes=candles.map(x=>x.c),st=supertrend(candles);if(!st)return;
    const last=candles.length-1,prev=last-1;if(prev<0||st.dir[last]==null||st.dir[prev]==null)return;
    const ind=macd(closes),hist=ind.hist,h0=hist.at(-3),h1=hist.at(-2),h2=hist.at(-1);
-   const specialBear=st.dir[last]===-1&&h0>h1&&h1>h2&&h2>0;
-   const specialBull=st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
+   const specialOn=$('specialEnabled').checked&&[...document.querySelectorAll('.specialTf:checked')].some(x=>x.value===tf);
+   const specialBear=specialOn&&st.dir[last]===-1&&h0>h1&&h1>h2&&h2>0;
+   const specialBull=specialOn&&st.dir[last]===1&&h0<h1&&h1<h2&&h2<0;
    const specialSide=specialBear?'bear':specialBull?'bull':null;
    const activeKey=coin.symbol+'|'+tf+'|'+(specialSide||'none');
-   if(specialSide){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts[tf][specialSide].unshift({symbol:coin.symbol,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime,sources:coin.sources});specialAlerts[tf][specialSide]=specialAlerts[tf][specialSide].slice(0,50);newAlerts++}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
+   if(specialSide){if(!specialActive.has(activeKey)){specialActive.add(activeKey);const key=coin.symbol+'|'+tf+'|special|'+specialSide+'|'+candles[last].t;if(!seen.has(key)){seen.add(key);const displayRsi=rsi(closes,14);specialAlerts.unshift({symbol:coin.symbol,tf,side:specialSide,change:coin.change,rsi:displayRsi?displayRsi.at(-1):NaN,at:candles[last].closeTime});specialAlerts=specialAlerts.slice(0,100);newAlerts++}}}else{specialActive.delete(coin.symbol+'|'+tf+'|bear');specialActive.delete(coin.symbol+'|'+tf+'|bull');}
    const side=st.dir[prev]===-1&&st.dir[last]===1?'bull':st.dir[prev]===1&&st.dir[last]===-1?'bear':null;
    if(side){
     if(confirmed(tf,side,closes,ind)){
@@ -178,7 +185,7 @@ function start(){if(running)return;running=true;$('startBtn').disabled=true;$('s
 function stop(){running=false;$('startBtn').disabled=false;$('stopBtn').disabled=true;if(timer)clearTimeout(timer);timer=null;if(wakeLoop){const wake=wakeLoop;wakeLoop=null;wake()}setStatus('Stopped')}
 function save(){localStorage.setItem('shortHunterSettings',JSON.stringify({config,universeMode:$('universeMode').value,threshold:$('threshold').value,topN:$('topN').value,minVolume:$('minVolume').value,refresh:$('refresh').value}));setStatus('Settings saved on this device')}
 function load(){try{const x=JSON.parse(localStorage.getItem('shortHunterSettings'));if(!x)return;config=x.config||defaults();for(const tf of TFS)for(const dir of ['bull','bear']){const v=config[tf]?.[dir];if(!v)continue;if(v.rsiMin===undefined||v.rsiMax===undefined){const legacy=Number(v.rsi??50);v.rsiMin=dir==='bull'?legacy:0;v.rsiMax=dir==='bull'?100:legacy}delete v.rsi}for(const k of ['universeMode','threshold','topN','minVolume','refresh'])if(x[k]!==undefined)$(k).value=x[k]}catch{config=defaults()}}
-$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();for(const tf of TFS){alerts[tf]={bull:[],bear:[]};specialAlerts[tf]={bull:[],bear:[]};}drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();save()};
+$('startBtn').onclick=start;$('stopBtn').onclick=stop;$('scanBtn').onclick=scan;$('clearBtn').onclick=()=>{seen.clear();specialActive.clear();for(const tf of TFS)alerts[tf]={bull:[],bear:[]};drawAlerts()};$('clearSpecialBtn').onclick=()=>{specialAlerts=[];drawAlerts()};$('saveBtn').onclick=save;$('resetBtn').onclick=()=>{config=defaults();$('universeMode').value='both';$('threshold').value=10;$('topN').value=10;$('minVolume').value=2000000;$('refresh').value=60;renderSettings();save()};
 load();renderSettings();renderDash();drawAlerts();
 })();
 </script>
