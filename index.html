@@ -187,7 +187,7 @@ function draw(){
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
   const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
-  el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?'24H '+(change>0?'+':'')+change.toFixed(2)+'%':'24H —';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
+  el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
  }
 }
 async function getJson(url){
