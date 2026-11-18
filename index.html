@@ -46,7 +46,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <button class="primary" id="startBtn">Start scanning</button>
   <button class="stop" id="stopBtn" disabled>Stop</button>
   <button id="scanBtn">Scan once</button>
-  <button id="clearBtn">Clear alerts</button>
+  <button id="clearBtn">Clear lists</button>
   <button id="saveSettingsBtn">Save settings</button>
   <span class="status" id="status">Idle · Waiting to start</span>
  </div>
@@ -64,7 +64,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  </div>
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
- <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
+ <div class="note">Current Supertrend state scanner · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
 </section>
 <section class="panel rsi-panel">
  <h2>RSI CONFIRMATION CONTROLS</h2>
@@ -163,7 +163,7 @@ const BASE='https://fapi.binance.com';
 const TFS=['1m','3m','5m','15m'];
 const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0;
-const alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ]));
+const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
 const lastProcessed=new Map();
 const seen=new Set();
 let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
@@ -175,14 +175,14 @@ function renderVerification(){
  $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Closed candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
 }
 function render(){
- $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH REVERSAL</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH REVERSAL</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>CURRENT BULLISH STATE</h3><div id="'+tf+'-bull"><div class="empty">No matching coins yet</div></div></div><div class="side bear"><h3>CURRENT BEARISH STATE</h3><div id="'+tf+'-bear"><div class="empty">No matching coins yet</div></div></div></div></section>').join('');
  draw();
 }
 function draw(){
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
-  const list=alerts[tf][side];
-  el.innerHTML=list.length?list.slice(0,5).map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><br><span class="transition">'+a.transition+'</span></span><span class="time">'+new Date(a.time).toLocaleString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+  const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
+  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="time">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+' · '+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No matching coins yet</div>';
  }
 }
 async function getJson(url){
@@ -293,6 +293,7 @@ async function scan(){
  try{
   status('Loading USDⓈ-M contracts…');
   const symbols=await getUniverse();
+  for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
@@ -316,8 +317,14 @@ async function scan(){
     const key=symbol+'|'+tf;
     const previousProcessed=lastProcessed.get(key);
     const latest=candles.length-1;
+    const currentDirection=directions[latest];
+    if(currentDirection===1&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
+     currentStates[tf].bull.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null});
+    }else if(currentDirection===-1&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
+     currentStates[tf].bear.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bearRsiConfig.enabled?bearRsiSeries[latest]:null});
+    }
     if(previousProcessed===undefined){
-     // First scan establishes a baseline; it does not generate historical alerts.
+     // First scan establishes the candle baseline while still populating current-state lists.
      lastProcessed.set(key,candles[latest].closeTime);
      scanStats[tf].baselines++;
      return;
@@ -331,14 +338,8 @@ async function scan(){
       const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
       const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
       if(!rsiPasses(rsiSeries||[],i,rsiConfig,side))continue;
-      const alertKey=symbol+'|'+tf+'|'+side+'|'+candles[i].closeTime;
-      if(!seen.has(alertKey)){
-       seen.add(alertKey);
-       alerts[tf][side].unshift({symbol,time:candles[i].closeTime,transition:side==='bull'?'Bearish → Bullish':'Bullish → Bearish'});
-       scanStats[tf].reversals++;
-       alerts[tf][side]=alerts[tf][side].slice(0,5);
-       newCount++;
-      }
+      scanStats[tf].reversals++;
+      newCount++;
      }
     }
     lastProcessed.set(key,candles[latest].closeTime);
