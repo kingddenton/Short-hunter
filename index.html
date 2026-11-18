@@ -68,7 +68,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 </section>
 <section class="panel rsi-panel">
  <h2>RSI CONFIRMATION CONTROLS</h2>
- <p class="intro">Optional RSI confirmation for each timeframe. Bullish and bearish settings are independent. Enabled RSI conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
+ <p class="intro">RSI period is fixed at 14 for every timeframe. Set a minimum and maximum RSI range independently for bullish and bearish confirmations. Enabled conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
  <details class="rsi-dropdown">
   <summary>1m RSI controls</summary>
   <div class="rsi-settings">
@@ -76,16 +76,16 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
     <h3>BULLISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_1m"> Enable bullish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBullPeriod_1m">RSI period</label><input id="rsiBullPeriod_1m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBullMin_1m">Minimum RSI</label><input id="rsiBullMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBullMin_1m">Minimum RSI</label><input id="rsiBullMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_1m">Maximum RSI</label><input id="rsiBullMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
    <div class="rsi-side bear">
     <h3>BEARISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_1m"> Enable bearish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBearPeriod_1m">RSI period</label><input id="rsiBearPeriod_1m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBearMax_1m">Maximum RSI</label><input id="rsiBearMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBearMin_1m">Minimum RSI</label><input id="rsiBearMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_1m">Maximum RSI</label><input id="rsiBearMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
   </div>
@@ -97,16 +97,16 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
     <h3>BULLISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_3m"> Enable bullish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBullPeriod_3m">RSI period</label><input id="rsiBullPeriod_3m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBullMin_3m">Minimum RSI</label><input id="rsiBullMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBullMin_3m">Minimum RSI</label><input id="rsiBullMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_3m">Maximum RSI</label><input id="rsiBullMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
    <div class="rsi-side bear">
     <h3>BEARISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_3m"> Enable bearish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBearPeriod_3m">RSI period</label><input id="rsiBearPeriod_3m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBearMax_3m">Maximum RSI</label><input id="rsiBearMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBearMin_3m">Minimum RSI</label><input id="rsiBearMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_3m">Maximum RSI</label><input id="rsiBearMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
   </div>
@@ -118,16 +118,16 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
     <h3>BULLISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_5m"> Enable bullish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBullPeriod_5m">RSI period</label><input id="rsiBullPeriod_5m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBullMin_5m">Minimum RSI</label><input id="rsiBullMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBullMin_5m">Minimum RSI</label><input id="rsiBullMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_5m">Maximum RSI</label><input id="rsiBullMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
    <div class="rsi-side bear">
     <h3>BEARISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_5m"> Enable bearish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBearPeriod_5m">RSI period</label><input id="rsiBearPeriod_5m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBearMax_5m">Maximum RSI</label><input id="rsiBearMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBearMin_5m">Minimum RSI</label><input id="rsiBearMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_5m">Maximum RSI</label><input id="rsiBearMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
   </div>
@@ -139,16 +139,16 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
     <h3>BULLISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_15m"> Enable bullish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBullPeriod_15m">RSI period</label><input id="rsiBullPeriod_15m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBullMin_15m">Minimum RSI</label><input id="rsiBullMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBullMin_15m">Minimum RSI</label><input id="rsiBullMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_15m">Maximum RSI</label><input id="rsiBullMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
    <div class="rsi-side bear">
     <h3>BEARISH RSI</h3>
     <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_15m"> Enable bearish RSI confirmation</label>
     <div class="rsi-fields">
-     <div><label for="rsiBearPeriod_15m">RSI period</label><input id="rsiBearPeriod_15m" type="number" min="2" max="100" step="1" value="14"></div>
-     <div><label for="rsiBearMax_15m">Maximum RSI</label><input id="rsiBearMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+     <div><label for="rsiBearMin_15m">Minimum RSI</label><input id="rsiBearMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_15m">Maximum RSI</label><input id="rsiBearMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
     </div>
    </div>
   </div>
@@ -242,18 +242,20 @@ function calculateRsiSeries(candles,period){
 }
 function readRsiConfig(tf,side){
  const enabled=$(side==='bull'?'rsiBullEnabled_':'rsiBearEnabled_').checked;
- if(!enabled)return {enabled:false,valid:true};
- const period=Number($(side==='bull'?'rsiBullPeriod_':'rsiBearPeriod_').value);
- const threshold=Number($(side==='bull'?'rsiBullMin_':'rsiBearMax_').value);
- const rawThreshold=$(side==='bull'?'rsiBullMin_':'rsiBearMax_').value.trim();
- return {enabled:true,valid:Number.isInteger(period)&&period>=2&&period<=100&&rawThreshold!==''&&Number.isFinite(threshold)&&threshold>=0&&threshold<=100,period,threshold};
+ if(!enabled)return {enabled:false,valid:true,period:14};
+ const prefix=side==='bull'?'rsiBull':'rsiBear';
+ const minRaw=$(prefix+'Min_'+tf).value.trim();
+ const maxRaw=$(prefix+'Max_'+tf).value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ return {enabled:true,valid,period:14,min,max};
 }
 function rsiPasses(series,index,config,side){
  if(!config.enabled)return true;
  if(!config.valid)return false;
  const value=series[index];
  if(value===null||!Number.isFinite(value))return false;
- return side==='bull'?value>=config.threshold:value<=config.threshold;
+ return value>=config.min&&value<=config.max;
 }
 function supertrend(candles){
  const n=candles.length,p=10,m=3;
@@ -382,8 +384,8 @@ const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
  const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount'];
  for(const tf of TFS){
-  ids.push('rsiBullEnabled_'+tf,'rsiBullPeriod_'+tf,'rsiBullMin_'+tf);
-  ids.push('rsiBearEnabled_'+tf,'rsiBearPeriod_'+tf,'rsiBearMax_'+tf);
+  ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
+  ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
  }
  return ids;
 }
