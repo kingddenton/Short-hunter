@@ -17,7 +17,24 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .side{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
 .side h3{font-size:12px;letter-spacing:.5px;margin:0 0 8px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
 .alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
-.note{color:var(--muted);font-size:12px;margin-top:10px}.verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+.rsi-panel h2{font-size:15px;margin:0 0 8px}
+.rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
+.rsi-dropdown{border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#0e1729;overflow:hidden}
+.rsi-dropdown summary{cursor:pointer;padding:11px 13px;font-weight:750;list-style:none}
+.rsi-dropdown summary::-webkit-details-marker{display:none}
+.rsi-dropdown summary:after{content:"+";float:right;color:var(--muted);font-size:18px}
+.rsi-dropdown[open] summary:after{content:"−"}
+.rsi-settings{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 10px 10px}
+.rsi-side{border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.rsi-side h3{font-size:12px;margin:0 0 8px}
+.rsi-side.bull h3{color:var(--green)}.rsi-side.bear h3{color:var(--red)}
+.rsi-enable{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;color:var(--text)}
+.rsi-enable input{width:auto}
+.rsi-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.rsi-fields label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
+.verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
 @media(max-width:650px){.grid{grid-template-columns:1fr}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
 </style>
 </head>
@@ -47,6 +64,94 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
  <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
+</section>
+<section class="panel rsi-panel">
+ <h2>RSI CONFIRMATION CONTROLS</h2>
+ <p class="intro">Optional RSI confirmation for each timeframe. Bullish and bearish settings are independent. Enabled RSI conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
+ <details class="rsi-dropdown">
+  <summary>1m RSI controls</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_1m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullPeriod_1m">RSI period</label><input id="rsiBullPeriod_1m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBullMin_1m">Minimum RSI</label><input id="rsiBullMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_1m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearPeriod_1m">RSI period</label><input id="rsiBearPeriod_1m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBearMax_1m">Maximum RSI</label><input id="rsiBearMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>3m RSI controls</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_3m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullPeriod_3m">RSI period</label><input id="rsiBullPeriod_3m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBullMin_3m">Minimum RSI</label><input id="rsiBullMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_3m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearPeriod_3m">RSI period</label><input id="rsiBearPeriod_3m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBearMax_3m">Maximum RSI</label><input id="rsiBearMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>5m RSI controls</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_5m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullPeriod_5m">RSI period</label><input id="rsiBullPeriod_5m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBullMin_5m">Minimum RSI</label><input id="rsiBullMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_5m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearPeriod_5m">RSI period</label><input id="rsiBearPeriod_5m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBearMax_5m">Maximum RSI</label><input id="rsiBearMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>15m RSI controls</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_15m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullPeriod_15m">RSI period</label><input id="rsiBullPeriod_15m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBullMin_15m">Minimum RSI</label><input id="rsiBullMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_15m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearPeriod_15m">RSI period</label><input id="rsiBearPeriod_15m" type="number" min="2" max="100" step="1" value="14"></div>
+     <div><label for="rsiBearMax_15m">Maximum RSI</label><input id="rsiBearMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Set threshold"></div>
+    </div>
+   </div>
+  </div>
+ </details>
 </section>
 <section class="panel verify"><h2>REVERSAL DETECTION CHECK</h2><div id="verification" class="status">Run a scan to see candle-check results.</div></section>
 <section class="grid" id="dashboard"></section>
@@ -115,6 +220,40 @@ async function getUniverse(){
  $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+sideCount+' gainers and bottom '+sideCount+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
 }
+function calculateRsiSeries(candles,period){
+ const values=Array(candles.length).fill(null);
+ if(!Number.isInteger(period)||period<2||candles.length<=period)return values;
+ let gains=0,losses=0;
+ for(let i=1;i<=period;i++){
+  const change=candles[i].c-candles[i-1].c;
+  if(change>0)gains+=change;else losses-=change;
+ }
+ let avgGain=gains/period,avgLoss=losses/period;
+ values[period]=avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
+ for(let i=period+1;i<candles.length;i++){
+  const change=candles[i].c-candles[i-1].c;
+  const gain=Math.max(0,change),loss=Math.max(0,-change);
+  avgGain=((avgGain*(period-1))+gain)/period;
+  avgLoss=((avgLoss*(period-1))+loss)/period;
+  values[i]=avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
+ }
+ return values;
+}
+function readRsiConfig(tf,side){
+ const enabled=$(side==='bull'?'rsiBullEnabled_':'rsiBearEnabled_').checked;
+ if(!enabled)return {enabled:false,valid:true};
+ const period=Number($(side==='bull'?'rsiBullPeriod_':'rsiBearPeriod_').value);
+ const threshold=Number($(side==='bull'?'rsiBullMin_':'rsiBearMax_').value);
+ const rawThreshold=$(side==='bull'?'rsiBullMin_':'rsiBearMax_').value.trim();
+ return {enabled:true,valid:Number.isInteger(period)&&period>=2&&period<=100&&rawThreshold!==''&&Number.isFinite(threshold)&&threshold>=0&&threshold<=100,period,threshold};
+}
+function rsiPasses(series,index,config,side){
+ if(!config.enabled)return true;
+ if(!config.valid)return false;
+ const value=series[index];
+ if(value===null||!Number.isFinite(value))return false;
+ return side==='bull'?value>=config.threshold:value<=config.threshold;
+}
 function supertrend(candles){
  const n=candles.length,p=10,m=3;
  if(n<p+3)return null;
@@ -165,6 +304,10 @@ async function scan(){
     const candles=raw.slice(0,-1).map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
     const directions=supertrend(candles);
     if(!directions||candles.length<2)return;
+    const bullRsiConfig=readRsiConfig(tf,'bull');
+    const bearRsiConfig=readRsiConfig(tf,'bear');
+    const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
+    const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
     scanStats[tf].checked++;
     scanStats[tf].lastClose=candles[candles.length-1].closeTime;
     const key=symbol+'|'+tf;
@@ -182,6 +325,9 @@ async function scan(){
      const before=directions[i-1],after=directions[i];
      const side=before===-1&&after===1?'bull':before===1&&after===-1?'bear':null;
      if(side){
+      const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
+      const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
+      if(!rsiPasses(rsiSeries||[],i,rsiConfig,side))continue;
       const alertKey=symbol+'|'+tf+'|'+side+'|'+candles[i].closeTime;
       if(!seen.has(alertKey)){
        seen.add(alertKey);
