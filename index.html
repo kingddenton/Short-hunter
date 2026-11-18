@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Short Hunter — Basic Supertrend Scanner</title>
 <style>
-:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26344f;--text:#e8eefb;--muted:#91a2bf;--green:#27c58b;--red:#f16b78;--rsi:#A855F7}
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26344f;--text:#e8eefb;--muted:#91a2bf;--green:#27c58b;--red:#f16b78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{padding:16px;border-bottom:1px solid var(--line);background:#0e1628}h1{font-size:21px;margin:0}main{max-width:1300px;margin:auto;padding:14px}
 .panel,.tfcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -20,13 +20,13 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .tfhead{font-weight:750;font-size:18px;margin-bottom:10px}.sides{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .side{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
 .side h3{font-size:12px;letter-spacing:.5px;margin:0 0 8px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
-.alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.rsi-value{color:var(--rsi)}.positive{color:var(--green);font-weight:750}.negative{color:var(--red);font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
+.alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.rsi-value{color:#A855F7}.positive{color:var(--green);font-weight:750}.negative{color:var(--red);font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
 .note{color:var(--muted);font-size:12px;margin-top:10px}
-.rsi-panel h2{font-size:15px;margin:0 0 8px;color:var(--rsi)}
+.rsi-panel h2{font-size:15px;margin:0 0 8px}
 .rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
 .rsi-control-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;align-items:start}
 .rsi-dropdown{border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#0e1729;overflow:hidden;min-width:0}
-.rsi-dropdown summary{font-size:13px;color:var(--rsi)}
+.rsi-dropdown summary{font-size:13px}
 @media(max-width:900px){.rsi-control-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .rsi-dropdown summary{cursor:pointer;padding:11px 13px;font-weight:750;list-style:none}
@@ -40,9 +40,9 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .rsi-enable{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;color:var(--text)}
 .rsi-enable input{width:auto}
 .rsi-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.rsi-fields label{display:block;font-size:11px;color:var(--rsi);margin-bottom:4px}
+.rsi-fields label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
 .rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
-.monitor-panel{margin:14px 0}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:var(--rsi);font-variant-numeric:tabular-nums}
+.monitor-panel{margin:14px 0}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
 .verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
 @media(max-width:650px){.grid{grid-template-columns:1fr;grid-template-areas:"tf1" "tf15" "tf3" "tf5"}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
 </style>
@@ -212,7 +212,7 @@ function draw(){
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
   const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
-  el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
+  el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol rsi-value">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
  }
 }
 function drawRSIMonitor(){
