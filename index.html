@@ -241,7 +241,7 @@ function calculateRsiSeries(candles,period){
  return values;
 }
 function readRsiConfig(tf,side){
- const enabled=$(side==='bull'?'rsiBullEnabled_':'rsiBearEnabled_').checked;
+ const enabled=$((side==='bull'?'rsiBullEnabled_':'rsiBearEnabled_')+tf).checked;
  if(!enabled)return {enabled:false,valid:true,period:14};
  const prefix=side==='bull'?'rsiBull':'rsiBear';
  const minRaw=$(prefix+'Min_'+tf).value.trim();
