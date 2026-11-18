@@ -38,11 +38,15 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <label class="status" for="universeSize">24H threshold / count</label>
   <input id="universeSize" type="number" min="1" step="1" value="10" style="width:90px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" for="minVolume">Min 24H quote volume (USDT)</label>
-  <input id="minVolume" type="number" min="0" step="100000" value="2000000" style="width:140px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <input id="minVolume" type="number" min="0" step="100000" value="2000000" style="width:140px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px">
+  <label class="status" for="refreshInterval">Scan refresh</label>
+  <select id="refreshInterval" style="width:auto;min-width:110px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="30000">30 seconds</option><option value="60000" selected>60 seconds</option><option value="0">Continuous</option></select>
+  <label class="status" for="workerCount">Concurrent workers (1–20)</label>
+  <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
  </div>
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
- <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · automatic scan every 60 seconds</div>
+ <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
 </section>
 <section class="panel verify"><h2>REVERSAL DETECTION CHECK</h2><div id="verification" class="status">Run a scan to see candle-check results.</div></section>
 <section class="grid" id="dashboard"></section>
@@ -150,9 +154,9 @@ async function scan(){
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
-  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · 8 workers…');
+  const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));\n  $('workerCount').value=workerCount;\n  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
-  await mapLimit(jobs,8,async({symbol,tf})=>{
+  await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    try{
     const raw=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
     // Drop Binance's currently forming candle. Every comparison below uses completed candles.
@@ -197,7 +201,7 @@ async function scan(){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
    status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
   }else{
-   status('Scan complete · '+symbols.length+' selected contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s');
+   status('Scan complete · '+symbols.length+' selected contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s · '+workerCount+' workers');
   }
  }catch(error){status('Scanner error · '+error.message)}
  finally{busy=false}
@@ -206,7 +210,7 @@ async function scanLoop(){
  if(!running)return;
  await scan();
  if(running){
-  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):60000;
+  const selectedInterval=Math.max(0,Number($('refreshInterval').value)||0);\n  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):selectedInterval;
   loopTimer=setTimeout(scanLoop,delay);
  }
 }
