@@ -24,7 +24,11 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .note{color:var(--muted);font-size:12px;margin-top:10px}
 .rsi-panel h2{font-size:15px;margin:0 0 8px}
 .rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
-.rsi-dropdown{border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#0e1729;overflow:hidden}
+.rsi-control-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;align-items:start}
+.rsi-dropdown{border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#0e1729;overflow:hidden;min-width:0}
+.rsi-dropdown summary{font-size:13px}
+@media(max-width:900px){.rsi-control-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 .rsi-dropdown summary{cursor:pointer;padding:11px 13px;font-weight:750;list-style:none}
 .rsi-dropdown summary::-webkit-details-marker{display:none}
 .rsi-dropdown summary:after{content:"+";float:right;color:var(--muted);font-size:18px}
@@ -74,10 +78,11 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  <div class="note">Current Supertrend state scanner · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
 </section>
 <section class="panel rsi-panel">
- <h2>RSI CONFIRMATION CONTROLS</h2>
+ <h2>RSI CONTROL</h2>
  <p class="intro">RSI period is fixed at 14 for every timeframe. Set a minimum and maximum RSI range independently for bullish and bearish confirmations. Enabled conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
+ <div class="rsi-control-row">
  <details class="rsi-dropdown">
-  <summary>1m RSI controls</summary>
+  <summary>1m CONTROL</summary>
   <div class="rsi-settings">
    <div class="rsi-side bull">
     <h3>BULLISH RSI</h3>
@@ -98,7 +103,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   </div>
  </details>
  <details class="rsi-dropdown">
-  <summary>3m RSI controls</summary>
+  <summary>3m CONTROL</summary>
   <div class="rsi-settings">
    <div class="rsi-side bull">
     <h3>BULLISH RSI</h3>
@@ -119,7 +124,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   </div>
  </details>
  <details class="rsi-dropdown">
-  <summary>5m RSI controls</summary>
+  <summary>5m CONTROL</summary>
   <div class="rsi-settings">
    <div class="rsi-side bull">
     <h3>BULLISH RSI</h3>
@@ -140,7 +145,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   </div>
  </details>
  <details class="rsi-dropdown">
-  <summary>15m RSI controls</summary>
+  <summary>15m CONTROL</summary>
   <div class="rsi-settings">
    <div class="rsi-side bull">
     <h3>BULLISH RSI</h3>
@@ -160,6 +165,8 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
    </div>
   </div>
  </details>
+
+ </div>
 </section>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
