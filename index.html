@@ -38,6 +38,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .rsi-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .rsi-fields label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
 .rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
+.monitor-panel{margin:14px 0}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
 .verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
 @media(max-width:650px){.grid{grid-template-columns:1fr;grid-template-areas:"tf1" "tf15" "tf3" "tf5"}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
 </style>
@@ -160,6 +161,20 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   </div>
  </details>
 </section>
+<section class="panel monitor-panel">
+ <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
+ <div class="monitor-controls">
+  <label for="rsiMonitorTf">Timeframe</label>
+  <select id="rsiMonitorTf"><option value="3m" selected>3m</option><option value="5m">5m</option></select>
+  <label for="rsiMonitorMin">Minimum RSI</label>
+  <input id="rsiMonitorMin" type="number" min="0" max="100" step="0.1" value="0">
+  <label for="rsiMonitorMax">Maximum RSI</label>
+  <input id="rsiMonitorMax" type="number" min="0" max="100" step="0.1" value="100">
+  <span class="status" id="rsiMonitorCount">Waiting for scan</span>
+ </div>
+ <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
+</section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
 <section class="grid" id="dashboard"></section>
 </main>
@@ -170,6 +185,7 @@ const TFS=['1m','3m','5m','15m'];
 const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0;
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
+const rsiMonitorStates=new Map();
 const lastProcessed=new Map();
 const seen=new Set();
 let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
@@ -191,6 +207,16 @@ function draw(){
   const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
   el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
  }
+}
+function drawRSIMonitor(){
+ const tf=$('rsiMonitorTf').value;
+ const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
+ const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
+ $('rsiMonitorCount').textContent=valid?matches.length+' coins in range · '+all.length+' RSI values received':'Enter a valid RSI range (0–100)';
+ $('rsiMonitorResults').innerHTML=matches.length?matches.map(x=>'<div class="monitor-coin"><span class="symbol">'+x.symbol+'</span><span class="monitor-value">'+x.rsi.toFixed(1)+'</span></div>').join(''):'<div class="empty">'+(valid?'No coins currently match this RSI range.':'Check the minimum and maximum values.')+'</div>';
 }
 async function getJson(url){
  const response=await fetch(url,{cache:'no-store'});
@@ -302,6 +328,7 @@ async function scan(){
   status('Loading USDⓈ-M contracts…');
   const symbols=await getUniverse();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
+  rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
@@ -320,6 +347,11 @@ async function scan(){
     const bearRsiConfig=readRsiConfig(tf,'bear');
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
     const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
+    if(tf===$('rsiMonitorTf').value){
+     const monitorSeries=calculateRsiSeries(candles,14);
+     const monitorValue=monitorSeries[monitorSeries.length-1];
+     if(Number.isFinite(monitorValue))rsiMonitorStates.set(symbol,{symbol,tf,rsi:monitorValue});
+    }
     scanStats[tf].checked++;
     scanStats[tf].lastClose=candles[candles.length-1].closeTime;
     const key=symbol+'|'+tf;
@@ -359,6 +391,7 @@ async function scan(){
    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
   });
   draw();
+  drawRSIMonitor();
   renderVerification();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
@@ -394,7 +427,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly'];
+ const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -433,6 +466,9 @@ function loadSettings(){
   status('Saved settings could not be restored · '+error.message);
  }
 }
+$('rsiMonitorTf').onchange=drawRSIMonitor;
+$('rsiMonitorMin').oninput=drawRSIMonitor;
+$('rsiMonitorMax').oninput=drawRSIMonitor;
 $('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
