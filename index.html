@@ -210,7 +210,8 @@ async function scanLoop(){
  if(!running)return;
  await scan();
  if(running){
-  const selectedInterval=Math.max(0,Number($('refreshInterval').value)||0);\n  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):selectedInterval;
+  const selectedInterval=Math.max(0,Number($('refreshInterval').value)||0);
+  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):selectedInterval;
   loopTimer=setTimeout(scanLoop,delay);
  }
 }
