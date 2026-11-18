@@ -65,6 +65,8 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <select id="refreshInterval" style="width:auto;min-width:110px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="30000">30 seconds</option><option value="60000" selected>60 seconds</option><option value="0">Continuous</option></select>
   <label class="status" for="workerCount">Concurrent workers (1–20)</label>
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="rsi-enable"><input type="checkbox" id="bullPositiveOnly"> Bullish signals only when 24H change is above 0%</label>
+  <label class="rsi-enable"><input type="checkbox" id="bearNegativeOnly"> Bearish signals only when 24H change is below 0%</label>
  </div>
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
@@ -324,9 +326,12 @@ async function scan(){
     const previousProcessed=lastProcessed.get(key);
     const latest=candles.length-1;
     const currentDirection=directions[latest];
-    if(currentDirection===1&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
+    const change24h=marketChanges.get(symbol);
+    const bullishChangePass=!$('bullPositiveOnly').checked||(Number.isFinite(change24h)&&change24h>0);
+    const bearishChangePass=!$('bearNegativeOnly').checked||(Number.isFinite(change24h)&&change24h<0);
+    if(currentDirection===1&&bullishChangePass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      currentStates[tf].bull.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null});
-    }else if(currentDirection===-1&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
+    }else if(currentDirection===-1&&bearishChangePass&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
      currentStates[tf].bear.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bearRsiConfig.enabled?bearRsiSeries[latest]:null});
     }
     if(previousProcessed===undefined){
@@ -389,7 +394,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount'];
+ const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
