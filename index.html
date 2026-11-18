@@ -164,7 +164,7 @@ async function scan(){
 async function scanLoop(){
  if(!running)return;
  await scan();
- if(running)loopTimer=setTimeout(scanLoop,60000);
+ if(running)loopTimer=setTimeout(scanLoop,0);
 }
 function start(){
  if(running)return;
