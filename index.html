@@ -47,6 +47,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <button class="stop" id="stopBtn" disabled>Stop</button>
   <button id="scanBtn">Scan once</button>
   <button id="clearBtn">Clear alerts</button>
+  <button id="saveSettingsBtn">Save settings</button>
   <span class="status" id="status">Idle · Waiting to start</span>
  </div>
  <div class="row" style="margin-top:10px">
@@ -377,6 +378,48 @@ function stop(){
  $('startBtn').disabled=false;$('stopBtn').disabled=true;
  status('Stopped');
 }
+const SETTINGS_KEY='shortHunterSettings_v1';
+function getSettingsControls(){
+ const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount'];
+ for(const tf of TFS){
+  ids.push('rsiBullEnabled_'+tf,'rsiBullPeriod_'+tf,'rsiBullMin_'+tf);
+  ids.push('rsiBearEnabled_'+tf,'rsiBearPeriod_'+tf,'rsiBearMax_'+tf);
+ }
+ return ids;
+}
+function saveSettings(){
+ const settings={};
+ for(const id of getSettingsControls()){
+  const el=$(id);
+  if(!el)continue;
+  settings[id]=el.type==='checkbox'?el.checked:el.value;
+ }
+ try{
+  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
+  status('Settings saved on this device · '+new Date().toLocaleTimeString());
+ }catch(error){
+  status('Could not save settings in this browser · '+error.message);
+ }
+}
+function loadSettings(){
+ try{
+  const raw=localStorage.getItem(SETTINGS_KEY);
+  if(!raw)return;
+  const settings=JSON.parse(raw);
+  if(!settings||typeof settings!=='object')return;
+  for(const id of getSettingsControls()){
+   if(!Object.prototype.hasOwnProperty.call(settings,id))continue;
+   const el=$(id);
+   if(!el)continue;
+   if(el.type==='checkbox')el.checked=Boolean(settings[id]);
+   else el.value=String(settings[id]);
+  }
+  status('Saved settings restored from this device');
+ }catch(error){
+  status('Saved settings could not be restored · '+error.message);
+ }
+}
+$('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
@@ -385,6 +428,7 @@ $('clearBtn').onclick=()=>{
  draw();
 };
 render();
+loadSettings();
 })();
 </script>
 </body>
