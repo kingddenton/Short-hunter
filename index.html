@@ -50,7 +50,7 @@ footer{padding:4px 16px 22px;color:var(--muted);font-size:12px;text-align:center
 <section class="panel">
 <h2>Scanner controls</h2>
 <div class="grid">
- <div class="field"><label>Universe</label><div class="small" style="padding:10px 0">All currently trading USDⓈ-M USDT perpetual contracts</div></div>
+ <div class="field"><label>Universe</label><div class="small" style="padding:10px 0">All currently trading USDⓈ-M USDT- and USDC-margined perpetual contracts</div></div>
  <div class="field"><label>Minimum 24h quote volume (USDT)</label><input id="minVolume" type="number" value="2000000" step="100000"></div>
  <div class="field"><label>Refresh interval</label><select id="refresh"><option value="continuous">Continuous (immediately after each scan)</option><option value="60">60 seconds</option><option value="120">120 seconds</option><option value="180">180 seconds</option><option value="300">300 seconds</option></select></div>
 </div>
@@ -187,7 +187,7 @@ async function getJson(url){
 async function universe(){
  const tickers=await getJson(BASE+'/fapi/v1/ticker/24hr');
  const exchange=exchangeSymbols||await getJson(BASE+'/fapi/v1/exchangeInfo');
- if(!exchangeSymbols)exchangeSymbols=new Set(exchange.symbols.filter(s=>s.contractType==='PERPETUAL'&&s.quoteAsset==='USDT'&&s.status==='TRADING').map(s=>s.symbol));
+ if(!exchangeSymbols)exchangeSymbols=new Set(exchange.symbols.filter(s=>s.contractType==='PERPETUAL'&&['USDT','USDC'].includes(s.quoteAsset)&&s.status==='TRADING').map(s=>s.symbol));
  const minVol=Number($('minVolume').value)||0;
  // Scan every currently trading Binance USDⓈ-M USDT perpetual contract that meets the shared volume floor.
  return tickers.filter(t=>exchangeSymbols.has(t.symbol)&&Number(t.quoteVolume)>=minVol)
