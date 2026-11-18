@@ -32,7 +32,17 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <button id="clearBtn">Clear alerts</button>
   <span class="status" id="status">Idle · Waiting to start</span>
  </div>
- <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M active perpetual contracts · ATR 10, multiplier 3 · completed candles only · automatic scan every 60 seconds</div>
+ <div class="row" style="margin-top:10px">
+  <label class="status" for="universeMode">Universe</label>
+  <select id="universeMode" style="width:auto;min-width:170px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="percent" selected>24H change threshold</option><option value="count">Top X / Bottom X</option></select>
+  <label class="status" for="universeSize">24H threshold / count</label>
+  <input id="universeSize" type="number" min="1" step="1" value="10" style="width:90px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" for="minVolume">Min 24H quote volume (USDT)</label>
+  <input id="minVolume" type="number" min="0" step="100000" value="2000000" style="width:140px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+ </div>
+ <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
+ </div>
+ <div class="note">Basic Supertrend reversal test · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · automatic scan every 60 seconds</div>
 </section>
 <section class="panel verify"><h2>REVERSAL DETECTION CHECK</h2><div id="verification" class="status">Run a scan to see candle-check results.</div></section>
 <section class="grid" id="dashboard"></section>
@@ -42,7 +52,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 const BASE='https://fapi.binance.com';
 const TFS=['1m','3m','5m','15m'];
 const $=id=>document.getElementById(id);
-let running=false,busy=false,loopTimer=null,exchangeSymbols=null;
+let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0;
 const alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ]));
 const lastProcessed=new Map();
 const seen=new Set();
@@ -66,8 +76,14 @@ function draw(){
  }
 }
 async function getJson(url){
- const response=await fetch(url);
- if(!response.ok)throw new Error('Binance HTTP '+response.status);
+ const response=await fetch(url,{cache:'no-store'});
+ if(!response.ok){
+  const error=new Error('Binance HTTP '+response.status);
+  error.status=response.status;
+  error.retryAfter=Math.max(1,Number(response.headers.get('Retry-After'))||60);
+  if(response.status===418||response.status===429){rateLimited=true;rateLimitUntil=Math.max(rateLimitUntil,Date.now()+error.retryAfter*1000);}
+  throw error;
+ }
  return response.json();
 }
 async function getUniverse(){
@@ -76,9 +92,24 @@ async function getUniverse(){
   exchangeSymbols?Promise.resolve(null):getJson(BASE+'/fapi/v1/exchangeInfo')
  ]);
  if(!exchangeSymbols){
-  exchangeSymbols=new Set(info.symbols.filter(s=>s.contractType==='PERPETUAL'&&s.status==='TRADING'&&['USDT','USDC'].includes(s.quoteAsset)).map(s=>s.symbol));
+  // Match the 3m–5m RSI Monitor: active USDT-quoted, USDT-margined contracts only.
+  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
  }
- return tickers.filter(t=>exchangeSymbols.has(t.symbol)).map(t=>t.symbol);
+ const minVolume=Math.max(0,Number($('minVolume').value)||0);
+ const eligible=tickers.filter(t=>exchangeSymbols.has(t.symbol)&&(Number(t.quoteVolume)||0)>=minVolume)
+  .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
+ const ranked=[...eligible].sort((a,b)=>b.change-a.change);
+ const size=Math.max(1,Number($('universeSize').value)||10);
+ const mode=$('universeMode').value;
+ const sideCount=Math.min(Math.floor(size),Math.floor(eligible.length/2));
+ const gainers=mode==='percent'?ranked.filter(x=>x.change>=size):ranked.slice(0,sideCount);
+ const losers=mode==='percent'?ranked.filter(x=>x.change<=-size):ranked.slice(Math.max(0,ranked.length-sideCount));
+ const selected=new Map();
+ gainers.forEach(x=>selected.set(x.symbol,x));
+ losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
+ const universe=[...selected.values()].sort((a,b)=>a.change-b.change);
+ $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+sideCount+' gainers and bottom '+sideCount+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
+ return universe.map(x=>x.symbol);
 }
 function supertrend(candles){
  const n=candles.length,p=10,m=3;
@@ -100,7 +131,7 @@ function supertrend(candles){
 async function mapLimit(items,limit,fn){
  let index=0;
  const workers=Array.from({length:Math.min(limit,items.length)},async()=>{
-  while(index<items.length){
+  while(index<items.length&&!rateLimited){
    const current=index++;
    await fn(items[current],current);
   }
@@ -109,6 +140,8 @@ async function mapLimit(items,limit,fn){
 }
 async function scan(){
  if(busy)return;
+ if(Date.now()<rateLimitUntil){status('Binance cooldown active · waiting '+Math.ceil((rateLimitUntil-Date.now())/1000)+'s before the next request');return}
+ rateLimited=false;
  busy=true;
  const started=Date.now();
  try{
@@ -117,7 +150,7 @@ async function scan(){
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
-  status('Checking '+symbols.length+' contracts across four timeframes…');
+  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · 8 workers…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,8,async({symbol,tf})=>{
    try{
@@ -154,23 +187,32 @@ async function scan(){
      }
     }
     lastProcessed.set(key,candles[latest].closeTime);
-   }catch(error){failures++;scanStats[tf].errors++;recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
+   }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
    completed++;
    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
   });
   draw();
   renderVerification();
-  status('Scan complete · '+symbols.length+' contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s');
+  if(rateLimited){
+   const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
+   status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
+  }else{
+   status('Scan complete · '+symbols.length+' selected contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s');
+  }
  }catch(error){status('Scanner error · '+error.message)}
  finally{busy=false}
 }
 async function scanLoop(){
  if(!running)return;
  await scan();
- if(running)loopTimer=setTimeout(scanLoop,0);
+ if(running){
+  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):60000;
+  loopTimer=setTimeout(scanLoop,delay);
+ }
 }
 function start(){
  if(running)return;
+ if(Date.now()<rateLimitUntil){status('Binance cooldown active · wait '+Math.ceil((rateLimitUntil-Date.now())/1000)+'s before restarting');return}
  running=true;
  $('startBtn').disabled=true;$('stopBtn').disabled=false;
  scanLoop();
