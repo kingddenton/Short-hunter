@@ -80,7 +80,7 @@ async function getJson(url){
  if(!response.ok){
   const error=new Error('Binance HTTP '+response.status);
   error.status=response.status;
-  error.retryAfter=Math.max(1,Number(response.headers.get('Retry-After'))||60);
+  error.retryAfter=Math.max(1,Number(response.headers.get('Retry-After'))||(response.status===418?120:60));
   if(response.status===418||response.status===429){rateLimited=true;rateLimitUntil=Math.max(rateLimitUntil,Date.now()+error.retryAfter*1000);}
   throw error;
  }
