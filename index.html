@@ -154,7 +154,9 @@ async function scan(){
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
-  const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));\n  $('workerCount').value=workerCount;\n  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers…');
+  const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
+  $('workerCount').value=workerCount;
+  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    try{
