@@ -186,7 +186,7 @@ function draw(){
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
   const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
-  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="time">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+' · '+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No matching coins yet</div>';
+  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span></div>').join(''):'<div class="empty">No matching coins yet</div>';
  }
 }
 async function getJson(url){
