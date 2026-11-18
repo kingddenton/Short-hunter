@@ -46,11 +46,13 @@ let running=false,busy=false,loopTimer=null,exchangeSymbols=null;
 const alerts=Object.fromEntries(TFS.map(tf=>[tf,{bull:[],bear:[]} ]));
 const lastProcessed=new Map();
 const seen=new Set();
-let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));\nlet recentErrors=[];
+let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
+let recentErrors=[];
 const status=s=>{$('status').textContent=s};
 function renderVerification(){
  const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
- const errorRows=recentErrors.length?recentErrors.slice(-8).reverse().map(e=>'<div class="note"><b>'+e.tf+' · '+e.symbol+'</b>: '+e.message+'</div>').join(''):'<div class="note">No request errors in the latest scan.</div>';\n $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Closed candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
+ const errorRows=recentErrors.length?recentErrors.slice(-8).reverse().map(e=>'<div class="note"><b>'+e.tf+' · '+e.symbol+'</b>: '+e.message+'</div>').join(''):'<div class="note">No request errors in the latest scan.</div>';
+ $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Closed candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
 }
 function render(){
  $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH REVERSAL</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH REVERSAL</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
@@ -112,7 +114,8 @@ async function scan(){
  try{
   status('Loading USDⓈ-M contracts…');
   const symbols=await getUniverse();
-  scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));\n  recentErrors=[];
+  scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
+  recentErrors=[];
   let completed=0,newCount=0,failures=0;
   status('Checking '+symbols.length+' contracts across four timeframes…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
