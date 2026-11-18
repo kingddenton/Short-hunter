@@ -366,8 +366,8 @@ async function scan(){
     const latest=candles.length-1;
     const currentDirection=directions[latest];
     const change24h=marketChanges.get(symbol);
-    const bullishChangePass=!$('bullPositiveOnly').checked||(Number.isFinite(change24h)&&change24h>0);
-    const bearishChangePass=!$('bearNegativeOnly').checked||(Number.isFinite(change24h)&&change24h<0);
+    const bullishChangePass=(!$('bullPositiveOnly').checked||(Number.isFinite(change24h)&&change24h>0))&&(!$('bearNegativeOnly').checked||(Number.isFinite(change24h)&&change24h>=0));
+    const bearishChangePass=(!$('bearNegativeOnly').checked||(Number.isFinite(change24h)&&change24h<0))&&(!$('bullPositiveOnly').checked||(Number.isFinite(change24h)&&change24h<=0));
     if(currentDirection===1&&bullishChangePass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      currentStates[tf].bull.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null});
     }else if(currentDirection===-1&&bearishChangePass&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
@@ -387,6 +387,8 @@ async function scan(){
      if(side){
       const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
       const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
+      if(side==='bull'&&!bullishChangePass)continue;
+      if(side==='bear'&&!bearishChangePass)continue;
       if(!rsiPasses(rsiSeries||[],i,rsiConfig,side))continue;
       scanStats[tf].reversals++;
       newCount++;
