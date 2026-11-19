@@ -535,7 +535,9 @@ function loadSettings(){
 }
 $('rsiMonitorTf').onchange=drawRSIMonitor;
 $('rsiMonitorMin').oninput=drawRSIMonitor;
-$('rsiMonitorMax').oninput=drawRSIMonitor;\n$('retestTolerance').onchange=saveSettings;\n$('retestRearm').onchange=saveSettings;
+$('rsiMonitorMax').oninput=drawRSIMonitor;
+$('retestTolerance').onchange=saveSettings;
+$('retestRearm').onchange=saveSettings;
 $('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
