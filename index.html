@@ -101,10 +101,7 @@ body,body *{font-size:16px!important}
   <label class="status" for="workerCount">Concurrent workers (1–20)</label>
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend bullish confirmation (bullish alerts only)</label>
-  <label class="status" for="bullChangeMin">Bullish 24H change above (%)</label>
-  <input id="bullChangeMin" type="number" step="0.1" value="0" style="width:80px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
-  <label class="status" for="bearChangeMin">Bearish 24H change at or below − (%)</label>
-  <input id="bearChangeMin" type="number" min="0" step="0.1" value="5" style="width:80px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px">
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBullOnly" type="checkbox" style="width:auto"> Bullish alerts: require positive 24H change</label>
  </div>
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
@@ -531,14 +528,10 @@ async function scan(){
     const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
     const change24h=marketChanges.get(symbol);
-    const bullishThresholdRaw=$('bullChangeMin').value.trim();
-    const bearishThresholdRaw=$('bearChangeMin').value.trim();
-    const bullishThreshold=bullishThresholdRaw===''?0:Number(bullishThresholdRaw);
-    const bearishThreshold=bearishThresholdRaw===''?0:Math.abs(Number(bearishThresholdRaw));
-    const bullishChangePass=Number.isFinite(change24h)&&Number.isFinite(bullishThreshold)&&change24h>bullishThreshold;
+    const bullishChangePass=!$('positive24hBullOnly').checked||(Number.isFinite(change24h)&&change24h>0);
     const bullish15mConfirmationPass=await passes15mBullishConfirmation(symbol);
     const bullishAlertPass=bullishChangePass&&bullish15mConfirmationPass;
-    const bearishChangePass=Number.isFinite(change24h)&&Number.isFinite(bearishThreshold)&&change24h<=-bearishThreshold;
+    const bearishChangePass=true;
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
@@ -661,7 +654,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','bullChangeMin','bearChangeMin','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','positive24hBullOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
