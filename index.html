@@ -75,6 +75,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  <div class="row">
   <button class="primary" id="startBtn">Start scanning</button>
   <button id="modeBtn" class="mode-closed" aria-label="Candle mode: closed">CLOSED MODE</button>
+  <input id="operationMode" type="hidden" value="closed">
   <button class="stop" id="stopBtn" disabled>Stop</button>
   <button id="scanBtn">Scan once</button>
   <button id="clearBtn">Clear lists</button>
@@ -416,8 +417,9 @@ async function scan(){
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    try{
     const raw=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
-    // Drop Binance's currently forming candle. Every comparison below uses completed candles.
-    const candles=raw.slice(0,-1).map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+    // The selected global mode determines which candle feeds every calculation.
+    const candleRows=scanMode==='live'?raw:raw.slice(0,-1);
+    const candles=candleRows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
     const st=supertrend(candles);
     if(!st||candles.length<2)return;
     const directions=st.direction;
@@ -435,8 +437,9 @@ async function scan(){
     scanStats[tf].checked++;
     scanStats[tf].lastClose=candles[candles.length-1].closeTime;
     const key=symbol+'|'+tf;
-    const previousProcessed=lastProcessed.get(key);
+    const storedProcessed=lastProcessed.get(key);
     const latest=candles.length-1;
+    const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
     const change24h=marketChanges.get(symbol);
     const bullishThresholdRaw=$('bullChangeMin').value.trim();
@@ -583,6 +586,7 @@ function loadSettings(){
   if(!settings||typeof settings!=='object')return;
   for(const id of getSettingsControls()){
    if(!Object.prototype.hasOwnProperty.call(settings,id))continue;
+   if(id==='operationMode'){operationMode=settings[id]==='live'?'live':'closed';continue;}
    const el=$(id);
    if(!el)continue;
    if(el.type==='checkbox')el.checked=Boolean(settings[id]);
@@ -599,7 +603,7 @@ $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
-$('saveSettingsBtn').onclick=saveSettings;\nfunction updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}\n$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';lastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
+$('saveSettingsBtn').onclick=saveSettings;\nfunction updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}\n$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
