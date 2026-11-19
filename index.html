@@ -603,7 +603,9 @@ $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
-$('saveSettingsBtn').onclick=saveSettings;\nfunction updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}\n$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
+$('saveSettingsBtn').onclick=saveSettings;
+function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
+$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
