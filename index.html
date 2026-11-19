@@ -37,9 +37,9 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .alert-entry{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px;align-items:center;column-gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a}
 .alert-entry:first-child{border-top:0}
 .alert-entry .symbol{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.alert-entry .symbol-st-bull{color:var(--green)}
-.alert-entry .symbol-st-bear{color:var(--red)}
-.alert-entry .symbol-st-neutral{color:var(--text)}
+.alert-entry .symbol-st-bull{color:var(--green)!important}
+.alert-entry .symbol-st-bear{color:var(--red)!important}
+.alert-entry .symbol-st-neutral{color:var(--text)!important}
 .alert-dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
 .alert-dot.kind-state{background:#7ee7b8}.alert-dot.kind-reversal{background:#83bdff}.alert-dot.kind-retest{background:#ffc078}.alert-dot.kind-near{background:#d1a5ff}
 .alert-details{justify-self:center;text-align:center;min-width:92px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -565,7 +565,6 @@ async function scan(){
     if(!st||candles.length<2)return;
     const directions=st.direction;
     const stLines=st.line;
-    if(tf==='15m')supertrend15mDirections.set(symbol,directions[latest]);
     const bullRsiConfig=readRsiConfig(tf,'bull');
     const bearRsiConfig=readRsiConfig(tf,'bear');
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
@@ -581,6 +580,7 @@ async function scan(){
     const key=symbol+'|'+tf;
     const storedProcessed=lastProcessed.get(key);
     const latest=candles.length-1;
+    if(tf==='15m')supertrend15mDirections.set(symbol,directions[latest]);
     const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
     const bullishAlertPass=await passes15mConfirmation(symbol,'bull');
