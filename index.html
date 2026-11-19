@@ -202,6 +202,18 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <div class="side bear"><h3>POTENTIAL SELL · BEARISH RETEST</h3><div id="bearRetests"><div class="empty">No retests detected yet</div></div></div>
  </div>
 </section>
+<section class="panel nearline-panel">
+ <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND NEAR-LINE ALERTS</h2>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:0 0 10px">Completed candles only. Detects candles that approach the active Supertrend line without touching or crossing it. Newest alerts appear first; up to 10 per direction are retained.</p>
+ <div class="monitor-controls">
+  <label for="nearLineTolerance">Near-line tolerance (%)</label>
+  <input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
+ </div>
+ <div class="sides">
+  <div class="side bull"><h3>POTENTIAL BUY · APPROACHING ST</h3><div id="bullNearLines"><div class="empty">No near-line alerts detected yet</div></div></div>
+  <div class="side bear"><h3>POTENTIAL SELL · APPROACHING ST</h3><div id="bearNearLines"><div class="empty">No near-line alerts detected yet</div></div></div>
+ </div>
+</section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
 <section class="grid" id="dashboard"></section>
 </main>
@@ -215,6 +227,7 @@ const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new 
 const rsiMonitorStates=new Map();
 const retestArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
+const nearLineAlerts={bull:[],bear:[]};
 const lastProcessed=new Map();
 const seen=new Set();
 let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
@@ -242,6 +255,14 @@ function drawRetestAlerts(){
   const el=$(side+'Retests');if(!el)continue;
   const list=retestAlerts[side];
   el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="'+(side==='bull'?'positive':'negative')+'">'+(side==='bull'?'LOW ':'HIGH ')+a.extreme.toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No retests detected yet</div>';
+ }
+}
+function drawNearLineAlerts(){
+ for(const side of ['bull','bear']){
+  const el=$(side==='bull'?'bullNearLines':'bearNearLines');
+  if(!el)continue;
+  const list=nearLineAlerts[side];
+  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="'+(side==='bull'?'positive':'negative')+'">'+(side==='bull'?'LOW ':'HIGH ')+a.extreme.toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No near-line alerts detected yet</div>';
  }
 }
 function drawRSIMonitor(){
@@ -431,6 +452,20 @@ async function scan(){
       scanStats[tf].reversals++;
       newCount++;
      }
+     // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
+     const nearLine=stLines[i];
+     if(Number.isFinite(nearLine)&&nearLine>0&&before===after&&(after===1||after===-1)){
+      const nearTolerance=Math.max(0.01,Math.min(2,Number($('nearLineTolerance').value)||0.2))/100;
+      const nearSide=after===1?'bull':'bear';
+      const nearThresholdPass=nearSide==='bull'?bullishChangePass:bearishChangePass;
+      const noTouchNear=nearSide==='bull'
+       ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
+       : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
+      if(nearThresholdPass&&noTouchNear){
+       nearLineAlerts[nearSide].unshift({symbol,tf,time:candles[i].closeTime,st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
+       nearLineAlerts[nearSide].length=Math.min(nearLineAlerts[nearSide].length,10);
+      }
+     }
      // Independent retest detector: trend must already be established before the touch candle.
      const line=stLines[i],close=candles[i].c;
      if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
@@ -465,6 +500,7 @@ async function scan(){
   draw();
   drawRSIMonitor();
   drawRetestAlerts();
+  drawNearLineAlerts();
   renderVerification();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
@@ -500,7 +536,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullChangeMin','bearChangeMin','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm'];
+ const ids=['universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullChangeMin','bearChangeMin','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -544,6 +580,7 @@ $('rsiMonitorMin').oninput=drawRSIMonitor;
 $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
+$('nearLineTolerance').onchange=saveSettings;
 $('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
@@ -554,6 +591,7 @@ $('clearBtn').onclick=()=>{
 };
 render();
 loadSettings();
+drawNearLineAlerts();
 function updateUniverseControls(){
  const countMode=$('universeMode').value==='count';
  $('thresholdControl').style.display=countMode?'none':'inline-flex';
