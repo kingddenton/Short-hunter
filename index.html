@@ -62,8 +62,12 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  <div class="row" style="margin-top:10px">
   <label class="status" for="universeMode">Universe</label>
   <select id="universeMode" style="width:auto;min-width:170px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="percent" selected>24H change threshold</option><option value="count">Top X / Bottom X</option></select>
-  <label class="status" for="universeSize">24H threshold / count</label>
-  <input id="universeSize" type="number" min="1" step="1" value="10" style="width:90px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <span id="thresholdControl" class="row" style="gap:7px"><label class="status" for="universeSize">24H change threshold (%)</label>
+  <input id="universeSize" type="number" min="1" step="1" value="10" style="width:90px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"></span>
+  <span id="countControls" class="row" style="gap:7px;display:none"><label class="status" for="topCount">Top gainers</label>
+  <input id="topCount" type="number" min="0" step="1" value="10" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" for="bottomCount">Bottom losers</label>
+  <input id="bottomCount" type="number" min="0" step="1" value="10" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px"></span>
   <label class="status" for="minVolume">Min 24H quote volume (USDT)</label>
   <input id="minVolume" type="number" min="0" step="100000" value="2000000" style="width:140px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px">
   <label class="status" for="refreshInterval">Scan refresh</label>
@@ -251,15 +255,17 @@ async function getUniverse(){
  const ranked=[...eligible].sort((a,b)=>b.change-a.change);
  const size=Math.max(1,Number($('universeSize').value)||10);
  const mode=$('universeMode').value;
- const sideCount=Math.min(Math.floor(size),Math.floor(eligible.length/2));
- const gainers=mode==='percent'?ranked.filter(x=>x.change>=size):ranked.slice(0,sideCount);
- const losers=mode==='percent'?ranked.filter(x=>x.change<=-size):ranked.slice(Math.max(0,ranked.length-sideCount));
+ const readCount=(id)=>{const raw=$(id).value.trim();if(raw==='')return 0;const n=Number(raw);return Number.isFinite(n)?Math.max(0,Math.floor(n)):0};
+ const topCount=Math.min(readCount('topCount'),eligible.length);
+ const bottomCount=Math.min(readCount('bottomCount'),eligible.length);
+ const gainers=mode==='percent'?ranked.filter(x=>x.change>=size):ranked.slice(0,topCount);
+ const losers=mode==='percent'?ranked.filter(x=>x.change<=-size):ranked.slice(Math.max(0,ranked.length-bottomCount));
  const selected=new Map();
  gainers.forEach(x=>selected.set(x.symbol,x));
  losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
  const universe=[...selected.values()].sort((a,b)=>a.change-b.change);
  marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
- $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+sideCount+' gainers and bottom '+sideCount+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
+ $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
 }
 function calculateRsiSeries(candles,period){
@@ -436,7 +442,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['universeMode','universeSize','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax'];
+ const ids=['universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -488,6 +494,13 @@ $('clearBtn').onclick=()=>{
 };
 render();
 loadSettings();
+function updateUniverseControls(){
+ const countMode=$('universeMode').value==='count';
+ $('thresholdControl').style.display=countMode?'none':'inline-flex';
+ $('countControls').style.display=countMode?'inline-flex':'none';
+}
+$('universeMode').onchange=updateUniverseControls;
+updateUniverseControls();
 })();
 </script>
 </body>
