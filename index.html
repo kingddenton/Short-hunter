@@ -210,8 +210,8 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <div class="perf-metric"><span>Candle cache hits / misses</span><strong id="perfCache">—</strong></div>
   <div class="perf-metric"><span>Peak active workers</span><strong id="perfWorkers">—</strong></div>
  </div>
- <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div>
- <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Jobs</th><th>Errors</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="7">No completed scans yet.</td></tr></tbody></table>
+ <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div><div class="note" id="perfMissing" style="margin-top:6px">Unstarted job details will appear here.</div>
+ <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Started</th><th>Finished</th><th>Failed</th><th>Not started</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="9">No completed scans yet.</td></tr></tbody></table>
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
@@ -450,8 +450,9 @@ function renderPerformance(){
  $('perfRequests').textContent=String(p.restRequests);
  $('perfCache').textContent=p.cacheHits+' / '+p.cacheMisses;
  $('perfWorkers').textContent=String(p.peakWorkers);
- $('perfStatus').textContent='Kline jobs completed: '+p.checkedJobs+'/'+p.totalJobs+' · failures: '+p.failures+' · cache hit rate: '+(p.cacheHits+p.cacheMisses?Math.round(p.cacheHits/(p.cacheHits+p.cacheMisses)*100):0)+'% · elapsed includes universe loading and scan processing.';
- $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.workers+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.checkedJobs+'/'+x.totalJobs+'</td><td>'+x.failures+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="7">No completed scans yet.</td></tr>';
+ $('perfStatus').textContent='Started: '+p.startedJobs+'/'+p.totalJobs+' · finished: '+p.finishedJobs+' · failed: '+p.failures+' · not started: '+p.notStarted+' · cache hit rate: '+(p.cacheHits+p.cacheMisses?Math.round(p.cacheHits/(p.cacheHits+p.cacheMisses)*100):0)+'%';
+ $('perfMissing').textContent=p.missingJobs.length?'Not-started jobs: '+p.missingJobs.join(', '):'All selected symbol/timeframe jobs were started.';
+ $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.workers+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.startedJobs+'/'+x.totalJobs+'</td><td>'+x.finishedJobs+'</td><td>'+x.failures+'</td><td>'+x.notStarted+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="7">No completed scans yet.</td></tr>';
 }
 async function scan(){
  if(busy)return;
@@ -461,7 +462,7 @@ async function scan(){
  const started=Date.now();
  performance.restRequests=0;performance.cacheHits=0;performance.cacheMisses=0;performance.activeWorkers=0;performance.peakWorkers=0;
  const coinTimes=new Map();
- let universeMs=0,checkedJobs=0;
+ let universeMs=0,checkedJobs=0,startedJobs=0,finishedJobs=0;
  try{
   status('Loading USDⓈ-M contracts…');
   const universeStarted=Date.now();
@@ -479,6 +480,7 @@ async function scan(){
   status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
+   startedJobs++;
    const jobStarted=Date.now();
    try{
     const raw=await getCachedKlines(symbol,tf);
@@ -582,7 +584,7 @@ async function scan(){
     }
     lastProcessed.set(key,candles[latest].closeTime);
    }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
-   const jobMs=Date.now()-jobStarted;checkedJobs++;
+   const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
    const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
    completed++;
    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
@@ -593,7 +595,10 @@ async function scan(){
   const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
   coinAverages.sort((a,b)=>a.ms-b.ms);
   const duration=(Date.now()-started)/1000;
-  performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
+  const startedKeys=new Set([...coinTimes.keys()]);
+  const missingJobs=jobs.filter(j=>!startedKeys.has(j.symbol+'|'+j.tf)).map(j=>j.symbol+' '+j.tf);
+  const notStarted=jobs.length-startedJobs;
+  performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,startedJobs,finishedJobs,notStarted,missingJobs,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
   performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
   renderPerformance();
   if(rateLimited){
