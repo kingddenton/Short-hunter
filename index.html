@@ -535,7 +535,6 @@ async function scan(){
     const latest=candles.length-1;
     const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
-    const change24h=marketChanges.get(symbol);
     const bullish15mConfirmationPass=await passes15mBullishConfirmation(symbol);
     const bullishAlertPass=bullish15mConfirmationPass;
     const bearishChangePass=true;
