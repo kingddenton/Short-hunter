@@ -498,7 +498,7 @@ async function scan(){
    }
    return confirmation15mPromises.get(symbol);
   };
-  status(''Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
+  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    startedJobs++;
