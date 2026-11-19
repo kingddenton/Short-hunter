@@ -25,10 +25,14 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .alert-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
 .alert-filter{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#0e1729;font-size:12px}
 .alert-filter input{margin:0}
-.alert-entry{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a;font-size:12px}
+.alert-entry{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a;font-size:12px}
 .alert-entry:first-child{border-top:0}
 .alert-entry .symbol{flex:0 0 auto}
-.alert-details{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:11px}
+.alert-dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.alert-dot.kind-state{background:#7ee7b8}.alert-dot.kind-reversal{background:#83bdff}.alert-dot.kind-retest{background:#ffc078}.alert-dot.kind-near{background:#d1a5ff}
+.alert-details{flex:0 0 auto;color:var(--muted);font-size:11px}
+.alert-change{margin-left:auto;flex:0 0 auto;font-size:11px;font-weight:750;font-variant-numeric:tabular-nums}
+.change-positive{color:var(--green)}.change-negative{color:var(--red)}.change-neutral{color:var(--muted)}
 
 .rsi-panel h2{font-size:15px;margin:0 0 8px}
 .rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
@@ -259,10 +263,10 @@ function draw(){
   const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)).slice(0,10);
   el.innerHTML=list.length?list.map(a=>{
    const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
-   const rsi=Number.isFinite(a.rsi)?'RSI '+a.rsi.toFixed(1):'';
-   const change=Number.isFinite(a.change24h)?'24h '+(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'';
-   const details=[labels[a.type],rsi,change].filter(Boolean).join(' · ');
-   return '<div class="alert-entry"><span class="symbol">'+a.symbol+'</span><span class="alert-details">'+details+'</span></div>';
+   const rsi=Number.isFinite(a.rsi)?'RSI '+a.rsi.toFixed(1):'RSI —';
+   const change=Number.isFinite(a.change24h)?(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'—';
+   const changeClass=Number.isFinite(a.change24h)?(a.change24h>0?'change-positive':a.change24h<0?'change-negative':'change-neutral'):'change-neutral';
+   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span></div>';
   }).join(''):'<div class="empty">No alerts match this filter</div>';
  }
 }
@@ -411,6 +415,7 @@ async function scan(){
     const bearRsiConfig=readRsiConfig(tf,'bear');
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
     const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
+    const displayRsiSeries=calculateRsiSeries(candles,14);
     if(tf===$('rsiMonitorTf').value){
      const monitorSeries=calculateRsiSeries(candles,14);
      const monitorValue=monitorSeries[monitorSeries.length-1];
@@ -430,11 +435,11 @@ async function scan(){
     const bullishChangePass=Number.isFinite(change24h)&&Number.isFinite(bullishThreshold)&&change24h>bullishThreshold;
     const bearishChangePass=Number.isFinite(change24h)&&Number.isFinite(bearishThreshold)&&change24h<=-bearishThreshold;
     if(currentDirection===1&&bullishChangePass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
-     const state={symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null};
+     const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
      addAlert(tf,'bull','state',state);
     }else if(currentDirection===-1&&bearishChangePass&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
-     const state={symbol,time:candles[latest].closeTime,rsi:bearRsiConfig.enabled?bearRsiSeries[latest]:null};
+     const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bear.set(symbol,state);
      addAlert(tf,'bear','state',state);
     }
@@ -456,7 +461,7 @@ async function scan(){
       if(reversalPass){
        scanStats[tf].reversals++;
        newCount++;
-       addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:rsiConfig.enabled?rsiSeries[i]:null});
+       addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i]});
       }
      }
      // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
@@ -469,7 +474,7 @@ async function scan(){
        ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
        : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
       if(nearThresholdPass&&noTouchNear){
-       addAlert(tf,nearSide,'near',{symbol,time:candles[i].closeTime,st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
+       addAlert(tf,nearSide,'near',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i],st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
       }
      }
      // Independent retest detector: trend must already be established before the touch candle.
