@@ -37,6 +37,9 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .alert-entry{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px;align-items:center;column-gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a}
 .alert-entry:first-child{border-top:0}
 .alert-entry .symbol{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.alert-entry .symbol-st-bull{color:var(--green)}
+.alert-entry .symbol-st-bear{color:var(--red)}
+.alert-entry .symbol-st-neutral{color:var(--text)}
 .alert-dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
 .alert-dot.kind-state{background:#7ee7b8}.alert-dot.kind-reversal{background:#83bdff}.alert-dot.kind-retest{background:#ffc078}.alert-dot.kind-near{background:#d1a5ff}
 .alert-details{justify-self:center;text-align:center;min-width:92px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -75,7 +78,7 @@ body .alert-entry > .alert-change.change-positive,
 body .alert-entry > .alert-change.change-negative,
 body .alert-entry > .alert-change.change-neutral{
   font-family:inherit!important;
-  font-size:8px!important;
+  font-size:10px!important;
   font-weight:700!important;
   line-height:1.2!important;
   letter-spacing:0!important;
@@ -262,6 +265,7 @@ const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0,operationMode='closed';
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
 const alertFeed=new Map();
+const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
 const retestArmed=new Map();
 const nearLineArmed=new Map();
@@ -319,7 +323,9 @@ function displaySidePass(alert,side){
    const rsi=Number.isFinite(a.rsi)?'<span class="rsi-alert-value '+rsiColor+'">'+a.rsi.toFixed(1)+'</span>':'<span class="rsi-alert-value">—</span>';
    const change=Number.isFinite(a.change24h)?(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'—';
    const changeClass=Number.isFinite(a.change24h)?(a.change24h>0?'change-positive':a.change24h<0?'change-negative':'change-neutral'):'change-neutral';
-   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span></div>';
+   const st15Direction=supertrend15mDirections.get(a.symbol);
+   const symbolStClass=st15Direction===1?'symbol-st-bull':st15Direction===-1?'symbol-st-bear':'symbol-st-neutral';
+   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol '+symbolStClass+'">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span></div>';
   }).join(''):'<div class="empty">No alerts match this filter</div>';
  }
 }
@@ -492,6 +498,7 @@ async function scan(){
   const universeStarted=Date.now();
   const symbols=await getUniverse();
   universeMs=Date.now()-universeStarted;
+  supertrend15mDirections.clear();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
   for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
   rsiMonitorStates.clear();
@@ -558,6 +565,7 @@ async function scan(){
     if(!st||candles.length<2)return;
     const directions=st.direction;
     const stLines=st.line;
+    if(tf==='15m')supertrend15mDirections.set(symbol,directions[latest]);
     const bullRsiConfig=readRsiConfig(tf,'bull');
     const bearRsiConfig=readRsiConfig(tf,'bear');
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
