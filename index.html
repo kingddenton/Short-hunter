@@ -22,6 +22,16 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .side h3{font-size:12px;letter-spacing:.5px;margin:0 0 8px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
 .alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.rsi-value{color:#FF8C42}.positive{color:var(--green);font-weight:750}.negative{color:var(--red);font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
 .note{color:var(--muted);font-size:12px;margin-top:10px}
+.alert-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.alert-filter{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#0e1729;font-size:12px}
+.alert-filter input{margin:0}
+.alert-entry{display:grid;grid-template-columns:auto 1fr auto;gap:5px 8px;align-items:center;padding:8px 0;border-top:1px solid #24314a;font-size:12px}
+.alert-entry:first-child{border-top:0}
+.alert-kind{font-size:10px;font-weight:800;letter-spacing:.3px;padding:3px 6px;border-radius:5px;white-space:nowrap}
+.kind-state{color:#7ee7b8;background:#123b31}.kind-reversal{color:#83bdff;background:#142f50}.kind-retest{color:#ffc078;background:#493019}.kind-near{color:#d1a5ff;background:#39244f}
+.alert-meta{grid-column:2/4;color:var(--muted);font-size:10px}
+.alert-price{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+
 .rsi-panel h2{font-size:15px;margin:0 0 8px}
 .rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
 .rsi-control-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;align-items:start}
@@ -188,30 +198,12 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
 </section>
-<section class="panel retest-panel">
- <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND RETEST ALERTS</h2>
- <p class="intro" style="color:var(--muted);font-size:12px;margin:0 0 10px">Completed-candle retests only. A valid retest touches the active Supertrend line and closes back on the trend side. Newest alerts appear first; up to 10 per direction are retained.</p>
+<section class="panel monitor-panel">
+ <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND ALERT SETTINGS</h2>
  <div class="monitor-controls">
-  <label for="retestTolerance">Touch tolerance (%)</label>
-  <input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
-  <label for="retestRearm">Rearm distance (%)</label>
-  <input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
- </div>
- <div class="sides">
-  <div class="side bull"><h3>POTENTIAL BUY · BULLISH RETEST</h3><div id="bullRetests"><div class="empty">No retests detected yet</div></div></div>
-  <div class="side bear"><h3>POTENTIAL SELL · BEARISH RETEST</h3><div id="bearRetests"><div class="empty">No retests detected yet</div></div></div>
- </div>
-</section>
-<section class="panel nearline-panel">
- <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND NEAR-LINE ALERTS</h2>
- <p class="intro" style="color:var(--muted);font-size:12px;margin:0 0 10px">Completed candles only. Detects candles that approach the active Supertrend line without touching or crossing it. Newest alerts appear first; up to 10 per direction are retained.</p>
- <div class="monitor-controls">
-  <label for="nearLineTolerance">Near-line tolerance (%)</label>
-  <input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
- </div>
- <div class="sides">
-  <div class="side bull"><h3>POTENTIAL BUY · APPROACHING ST</h3><div id="bullNearLines"><div class="empty">No near-line alerts detected yet</div></div></div>
-  <div class="side bear"><h3>POTENTIAL SELL · APPROACHING ST</h3><div id="bearNearLines"><div class="empty">No near-line alerts detected yet</div></div></div>
+  <label for="retestTolerance">Touch tolerance (%)</label><input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
+  <label for="retestRearm">Rearm distance (%)</label><input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
+  <label for="nearLineTolerance">Near-line tolerance (%)</label><input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
  </div>
 </section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
@@ -224,6 +216,7 @@ const TFS=['1m','3m','5m','15m'];
 const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0;
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
+const alertFeed=new Map();
 const rsiMonitorStates=new Map();
 const retestArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
@@ -240,29 +233,36 @@ function renderVerification(){
  $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Closed candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
 }
 function render(){
- $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>CURRENT BULLISH STATE</h3><div id="'+tf+'-bull"><div class="empty">No matching coins yet</div></div></div><div class="side bear"><h3>CURRENT BEARISH STATE</h3><div id="'+tf+'-bear"><div class="empty">No matching coins yet</div></div></div></div></section>').join('');
+ const filterHtml='<div class="alert-filters"><b style="font-size:12px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="reversal" checked> Reversal</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div>';
+ $('dashboard').innerHTML=filterHtml+TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  draw();
 }
+function addAlert(tf,side,type,data){
+ const key=tf+'|'+side;
+ if(!alertFeed.has(key))alertFeed.set(key,[]);
+ const list=alertFeed.get(key);
+ const id=type+'|'+data.symbol+'|'+data.time;
+ if(list.some(a=>a.id===id))return;
+ list.unshift({id,tf,side,type,...data});
+ if(type==='state'){
+  const old=list.findIndex((a,i)=>i>0&&a.type==='state'&&a.symbol===data.symbol);
+  if(old>0)list.splice(old,1);
+ }
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>100)list.length=100;
+}
 function draw(){
+ const enabled=new Set([...document.querySelectorAll('.alertTypeFilter:checked')].map(el=>el.value));
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
-  const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
-  el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol rsi-value">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
- }
-}
-function drawRetestAlerts(){
- for(const side of ['bull','bear']){
-  const el=$(side+'Retests');if(!el)continue;
-  const list=retestAlerts[side];
-  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="'+(side==='bull'?'positive':'negative')+'">'+(side==='bull'?'LOW ':'HIGH ')+a.extreme.toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No retests detected yet</div>';
- }
-}
-function drawNearLineAlerts(){
- for(const side of ['bull','bear']){
-  const el=$(side==='bull'?'bullNearLines':'bearNearLines');
-  if(!el)continue;
-  const list=nearLineAlerts[side];
-  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="'+(side==='bull'?'positive':'negative')+'">'+(side==='bull'?'LOW ':'HIGH ')+a.extreme.toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No near-line alerts detected yet</div>';
+  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)).slice(0,10);
+  el.innerHTML=list.length?list.map(a=>{
+   const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
+   const price=a.extreme!==undefined?(side==='bull'?'Low ':'High ')+a.extreme.toPrecision(6):'';
+   const detail=a.st!==undefined?'ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6):a.rsi!==null&&a.rsi!==undefined?'RSI '+a.rsi.toFixed(1):'';
+   return '<div class="alert-entry"><span class="alert-kind kind-'+a.type+'">'+labels[a.type]+'</span><span class="symbol">'+a.symbol+'</span><span class="alert-price">'+price+'</span><span class="alert-meta">'+new Date(a.time).toLocaleString()+(detail?' · '+detail:'')+'</span></div>';
+  }).join(''):'<div class="empty">No alerts match this filter</div>';
  }
 }
 function drawRSIMonitor(){
@@ -388,6 +388,7 @@ async function scan(){
   status('Loading USDⓈ-M contracts…');
   const symbols=await getUniverse();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
+  for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
   rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
@@ -428,9 +429,13 @@ async function scan(){
     const bullishChangePass=Number.isFinite(change24h)&&Number.isFinite(bullishThreshold)&&change24h>bullishThreshold;
     const bearishChangePass=Number.isFinite(change24h)&&Number.isFinite(bearishThreshold)&&change24h<=-bearishThreshold;
     if(currentDirection===1&&bullishChangePass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
-     currentStates[tf].bull.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null});
+     const state={symbol,time:candles[latest].closeTime,rsi:bullRsiConfig.enabled?bullRsiSeries[latest]:null};
+     currentStates[tf].bull.set(symbol,state);
+     addAlert(tf,'bull','state',state);
     }else if(currentDirection===-1&&bearishChangePass&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
-     currentStates[tf].bear.set(symbol,{symbol,time:candles[latest].closeTime,rsi:bearRsiConfig.enabled?bearRsiSeries[latest]:null});
+     const state={symbol,time:candles[latest].closeTime,rsi:bearRsiConfig.enabled?bearRsiSeries[latest]:null};
+     currentStates[tf].bear.set(symbol,state);
+     addAlert(tf,'bear','state',state);
     }
     if(previousProcessed===undefined){
      // First scan establishes the candle baseline while still populating current-state lists.
@@ -446,11 +451,12 @@ async function scan(){
      if(side){
       const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
       const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
-      if(side==='bull'&&!bullishChangePass)continue;
-      if(side==='bear'&&!bearishChangePass)continue;
-      if(!rsiPasses(rsiSeries||[],i,rsiConfig,side))continue;
-      scanStats[tf].reversals++;
-      newCount++;
+      const reversalPass=(side==='bull'?bullishChangePass:bearishChangePass)&&rsiPasses(rsiSeries||[],i,rsiConfig,side);
+      if(reversalPass){
+       scanStats[tf].reversals++;
+       newCount++;
+       addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:rsiConfig.enabled?rsiSeries[i]:null});
+      }
      }
      // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
      const nearLine=stLines[i];
@@ -462,16 +468,14 @@ async function scan(){
        ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
        : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
       if(nearThresholdPass&&noTouchNear){
-       nearLineAlerts[nearSide].unshift({symbol,tf,time:candles[i].closeTime,st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
-       nearLineAlerts[nearSide].length=Math.min(nearLineAlerts[nearSide].length,10);
+       addAlert(tf,nearSide,'near',{symbol,time:candles[i].closeTime,st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
       }
      }
      // Independent retest detector: trend must already be established before the touch candle.
      const line=stLines[i],close=candles[i].c;
      if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
       const retestSide=after===1?'bull':'bear';
-      if(retestSide==='bull'&&!bullishChangePass)continue;
-      if(retestSide==='bear'&&!bearishChangePass)continue;
+      const retestThresholdPass=retestSide==='bull'?bullishChangePass:bearishChangePass;
       const rearmKey=symbol+'|'+tf+'|'+retestSide;
       const tolerance=Math.max(0,Math.min(2,Number($('retestTolerance').value)||0))/100;
       const rearmDistance=Math.max(0.05,Math.min(5,Number($('retestRearm').value)||0.3))/100;
@@ -480,13 +484,12 @@ async function scan(){
        const separated=retestSide==='bull'?close>=line*(1+rearmDistance):close<=line*(1-rearmDistance);
        if(separated){retestArmed.set(rearmKey,true);armed=true;}
       }
-      if(armed){
+      if(armed&&retestThresholdPass){
        const touched=retestSide==='bull'?candles[i].l<=line*(1+tolerance):candles[i].h>=line*(1-tolerance);
        const reclaimed=retestSide==='bull'?close>line:close<line;
        if(touched&&reclaimed){
         const alert={symbol,tf,time:candles[i].closeTime,st:line,extreme:retestSide==='bull'?candles[i].l:candles[i].h,close};
-        retestAlerts[retestSide].unshift(alert);
-        retestAlerts[retestSide].length=Math.min(retestAlerts[retestSide].length,10);
+        addAlert(tf,retestSide,'retest',alert);
         retestArmed.set(rearmKey,false);
        }
       }
@@ -499,8 +502,7 @@ async function scan(){
   });
   draw();
   drawRSIMonitor();
-  drawRetestAlerts();
-  drawNearLineAlerts();
+  draw();
   renderVerification();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
@@ -585,13 +587,10 @@ $('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
-$('clearBtn').onclick=()=>{
- for(const tf of TFS)alerts[tf]={bull:[],bear:[]};
- draw();
-};
+$('clearBtn').onclick=()=>{alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();status('All dashboard alerts cleared');};
 render();
 loadSettings();
-drawNearLineAlerts();
+draw();
 function updateUniverseControls(){
  const countMode=$('universeMode').value==='count';
  $('thresholdControl').style.display=countMode?'none':'inline-flex';
