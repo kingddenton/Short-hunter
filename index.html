@@ -586,10 +586,13 @@ async function scan(){
     }
     lastProcessed.set(key,candles[latest].closeTime);
    }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
-   const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
-   const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
-   completed++;
-   if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
+   finally{
+    // Count every started job as settled, including jobs that exit early via return.
+    const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
+    const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
+    completed++;
+    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
+   }
   });
   draw();
   drawRSIMonitor();
