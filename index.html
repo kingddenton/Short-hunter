@@ -186,6 +186,20 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
 </section>
+<section class="panel retest-panel">
+ <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND RETEST ALERTS</h2>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:0 0 10px">Completed-candle retests only. A valid retest touches the active Supertrend line and closes back on the trend side. Newest alerts appear first; up to 10 per direction are retained.</p>
+ <div class="monitor-controls">
+  <label for="retestTolerance">Touch tolerance (%)</label>
+  <input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
+  <label for="retestRearm">Rearm distance (%)</label>
+  <input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
+ </div>
+ <div class="sides">
+  <div class="side bull"><h3>POTENTIAL BUY · BULLISH RETEST</h3><div id="bullRetests"><div class="empty">No retests detected yet</div></div></div>
+  <div class="side bear"><h3>POTENTIAL SELL · BEARISH RETEST</h3><div id="bearRetests"><div class="empty">No retests detected yet</div></div></div>
+ </div>
+</section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
 <section class="grid" id="dashboard"></section>
 </main>
@@ -197,6 +211,8 @@ const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0;
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
 const rsiMonitorStates=new Map();
+const retestArmed=new Map();
+const retestAlerts={bull:[],bear:[]};
 const lastProcessed=new Map();
 const seen=new Set();
 let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
@@ -217,6 +233,13 @@ function draw(){
   const el=$(tf+'-'+side);if(!el)continue;
   const list=[...currentStates[tf][side].values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));
   el.innerHTML=list.length?list.map(a=>{const change=marketChanges.get(a.symbol);const hasChange=Number.isFinite(change);const changeClass=!hasChange?'':change>=0?'positive':'negative';const changeLabel=hasChange?(change>0?'+':'')+change.toFixed(2)+'%':'—';return '<div class="alert"><span class="symbol">'+a.symbol+'</span><span class="symbol rsi-value">'+(a.rsi===null?'RSI off':'RSI '+a.rsi.toFixed(1))+'</span><span class="'+changeClass+'">'+changeLabel+'</span></div>'}).join(''):'<div class="empty">No matching coins yet</div>';
+ }
+}
+function drawRetestAlerts(){
+ for(const side of ['bull','bear']){
+  const el=$(side+'Retests');if(!el)continue;
+  const list=retestAlerts[side];
+  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="positive">'+(side==='bull'?'LOW ':'HIGH ')+(side==='bull'?a.extreme:a.extreme).toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No retests detected yet</div>';
  }
 }
 function drawRSIMonitor(){
@@ -319,7 +342,8 @@ function supertrend(candles){
   else if(dir[i-1]===1)dir[i]=candles[i].c<lower[i-1]?-1:1;
   else dir[i]=candles[i].c>upper[i-1]?1:-1;
  }
- return dir;
+ const line=dir.map((d,i)=>d===1?lower[i]:d===-1?upper[i]:null);
+ return {direction:dir,line};
 }
 async function mapLimit(items,limit,fn){
  let index=0;
@@ -399,6 +423,29 @@ async function scan(){
       scanStats[tf].reversals++;
       newCount++;
      }
+     // Independent retest detector: trend must already be established before the touch candle.
+     const line=stLines[i],close=candles[i].c;
+     if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
+      const retestSide=after===1?'bull':'bear';
+      const rearmKey=symbol+'|'+tf+'|'+retestSide;
+      const tolerance=Math.max(0,Math.min(2,Number($('retestTolerance').value)||0))/100;
+      const rearmDistance=Math.max(0.05,Math.min(5,Number($('retestRearm').value)||0.3))/100;
+      let armed=retestArmed.has(rearmKey)?retestArmed.get(rearmKey):true;
+      if(!armed){
+       const separated=retestSide==='bull'?close>=line*(1+rearmDistance):close<=line*(1-rearmDistance);
+       if(separated){retestArmed.set(rearmKey,true);armed=true;}
+      }
+      if(armed){
+       const touched=retestSide==='bull'?candles[i].l<=line*(1+tolerance):candles[i].h>=line*(1-tolerance);
+       const reclaimed=retestSide==='bull'?close>line:close<line;
+       if(touched&&reclaimed){
+        const alert={symbol,tf,time:candles[i].closeTime,st:line,extreme:retestSide==='bull'?candles[i].l:candles[i].h,close};
+        retestAlerts[retestSide].unshift(alert);
+        retestAlerts[retestSide].length=Math.min(retestAlerts[retestSide].length,10);
+        retestArmed.set(rearmKey,false);
+       }
+      }
+     }
     }
     lastProcessed.set(key,candles[latest].closeTime);
    }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
@@ -442,7 +489,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax'];
+ const ids=['universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullPositiveOnly','bearNegativeOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -483,7 +530,7 @@ function loadSettings(){
 }
 $('rsiMonitorTf').onchange=drawRSIMonitor;
 $('rsiMonitorMin').oninput=drawRSIMonitor;
-$('rsiMonitorMax').oninput=drawRSIMonitor;
+$('rsiMonitorMax').oninput=drawRSIMonitor;\n$('retestTolerance').onchange=saveSettings;\n$('retestRearm').onchange=saveSettings;
 $('saveSettingsBtn').onclick=saveSettings;
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
