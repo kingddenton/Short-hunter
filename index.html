@@ -101,7 +101,8 @@ body,body *{font-size:16px!important}
   <label class="status" for="workerCount">Concurrent workers (1–20)</label>
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend bullish confirmation (bullish alerts only)</label>
-  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBullOnly" type="checkbox" style="width:auto"> Bullish alerts: require positive 24H change</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBothSides" type="checkbox" style="width:auto"> Positive 24H coins: allow on both bullish and bearish sides</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="negative24hBothSides" type="checkbox" style="width:auto"> Negative 24H coins: allow on both bullish and bearish sides</label>
  </div>
  <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
  </div>
@@ -286,11 +287,18 @@ function addAlert(tf,side,type,data){
  list.sort((a,b)=>b.time-a.time);
  if(list.length>100)list.length=100;
 }
-function draw(){
+function displaySidePass(alert,side){
+  const change=alert.change24h;
+  if(!Number.isFinite(change)||change===0)return true;
+  if(side==='bull'&&change<0)return $('negative24hBothSides').checked;
+  if(side==='bear'&&change>0)return $('positive24hBothSides').checked;
+  return true;
+ }
+ function draw(){
  const enabled=new Set([...document.querySelectorAll('.alertTypeFilter:checked')].map(el=>el.value));
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
-  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)).slice(0,10);
+  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)&&displaySidePass(a,side)).slice(0,10);
   el.innerHTML=list.length?list.map(a=>{
    const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
    const rsiColor=Number.isFinite(a.rsi)?(a.rsi<=33?'rsi-deep-green':a.rsi<50?'rsi-light-green':a.rsi<=60?'rsi-orange':a.rsi<=75?'rsi-brown':'rsi-red'):'';
@@ -528,9 +536,8 @@ async function scan(){
     const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
     const change24h=marketChanges.get(symbol);
-    const bullishChangePass=!$('positive24hBullOnly').checked||(Number.isFinite(change24h)&&change24h>0);
     const bullish15mConfirmationPass=await passes15mBullishConfirmation(symbol);
-    const bullishAlertPass=bullishChangePass&&bullish15mConfirmationPass;
+    const bullishAlertPass=bullish15mConfirmationPass;
     const bearishChangePass=true;
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
@@ -654,7 +661,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','positive24hBullOnly','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -700,6 +707,8 @@ $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
+$('positive24hBothSides').onchange=()=>{saveSettings();draw();};
+$('negative24hBothSides').onchange=()=>{saveSettings();draw();};
 $('saveSettingsBtn').onclick=saveSettings;
 function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
 $('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
