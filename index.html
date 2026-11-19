@@ -239,7 +239,7 @@ function drawRetestAlerts(){
  for(const side of ['bull','bear']){
   const el=$(side+'Retests');if(!el)continue;
   const list=retestAlerts[side];
-  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="positive">'+(side==='bull'?'LOW ':'HIGH ')+(side==='bull'?a.extreme:a.extreme).toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No retests detected yet</div>';
+  el.innerHTML=list.length?list.map(a=>'<div class="alert"><span><span class="symbol">'+a.symbol+'</span><span class="time"> · '+a.tf+' · '+new Date(a.time).toLocaleTimeString()+'</span></span><span class="'+(side==='bull'?'positive':'negative')+'">'+(side==='bull'?'LOW ':'HIGH ')+a.extreme.toPrecision(6)+'</span><span>ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6)+'</span></div>').join(''):'<div class="empty">No retests detected yet</div>';
  }
 }
 function drawRSIMonitor(){
@@ -378,8 +378,10 @@ async function scan(){
     const raw=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
     // Drop Binance's currently forming candle. Every comparison below uses completed candles.
     const candles=raw.slice(0,-1).map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
-    const directions=supertrend(candles);
-    if(!directions||candles.length<2)return;
+    const st=supertrend(candles);
+    if(!st||candles.length<2)return;
+    const directions=st.direction;
+    const stLines=st.line;
     const bullRsiConfig=readRsiConfig(tf,'bull');
     const bearRsiConfig=readRsiConfig(tf,'bear');
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
@@ -427,6 +429,8 @@ async function scan(){
      const line=stLines[i],close=candles[i].c;
      if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
       const retestSide=after===1?'bull':'bear';
+      if(retestSide==='bull'&&!bullishChangePass)continue;
+      if(retestSide==='bear'&&!bearishChangePass)continue;
       const rearmKey=symbol+'|'+tf+'|'+retestSide;
       const tolerance=Math.max(0,Math.min(2,Number($('retestTolerance').value)||0))/100;
       const rearmDistance=Math.max(0.05,Math.min(5,Number($('retestRearm').value)||0.3))/100;
