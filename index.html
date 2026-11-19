@@ -458,6 +458,7 @@ async function scan(){
   });
   draw();
   drawRSIMonitor();
+  drawRetestAlerts();
   renderVerification();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
