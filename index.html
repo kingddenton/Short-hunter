@@ -63,7 +63,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .rsi-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .rsi-fields label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
 .rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
-.monitor-panel{margin:14px 0}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
+.monitor-panel{margin:14px 0}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.perf-metric{background:#0e1729;border:1px solid var(--line);border-radius:8px;padding:9px;min-width:0}.perf-metric span{display:block;color:var(--muted);font-size:11px}.perf-metric strong{display:block;font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.perf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.perf-table th,.perf-table td{text-align:left;padding:6px;border-top:1px solid var(--line)}.perf-table th{color:var(--muted)}@media(max-width:650px){.perf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
 .verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
 @media(max-width:650px){.grid{grid-template-columns:1fr;grid-template-areas:"tf1" "tf15" "tf3" "tf5"}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
 </style>
@@ -197,6 +197,22 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 
  </div>
 </section>
+<details class="panel monitor-panel" id="performancePanel" open>
+ <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">PERFORMANCE MONITOR</summary>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Lightweight scan diagnostics. Measurements cover this browser session; they do not change scanner filters or alert decisions.</p>
+ <div class="perf-grid">
+  <div class="perf-metric"><span>Last scan duration</span><strong id="perfDuration">—</strong></div>
+  <div class="perf-metric"><span>Universe loading</span><strong id="perfUniverse">—</strong></div>
+  <div class="perf-metric"><span>Selected / checked jobs</span><strong id="perfCoverage">—</strong></div>
+  <div class="perf-metric"><span>Average per coin</span><strong id="perfPerCoin">—</strong></div>
+  <div class="perf-metric"><span>Fastest / slowest coin</span><strong id="perfExtremes">—</strong></div>
+  <div class="perf-metric"><span>REST requests</span><strong id="perfRequests">—</strong></div>
+  <div class="perf-metric"><span>Candle cache hits / misses</span><strong id="perfCache">—</strong></div>
+  <div class="perf-metric"><span>Peak active workers</span><strong id="perfWorkers">—</strong></div>
+ </div>
+ <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div>
+ <table class="perf-table"><thead><tr><th>Cycle</th><th>Duration</th><th>Coins</th><th>Jobs</th><th>Errors</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="6">No completed scans yet.</td></tr></tbody></table>
+</details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
@@ -241,6 +257,7 @@ let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0
 let recentErrors=[];
 let marketChanges=new Map();
 const candleCache=new Map();
+const performance={restRequests:0,cacheHits:0,cacheMisses:0,activeWorkers:0,peakWorkers:0,history:[],last:null};
 const status=s=>{$('status').textContent=s};
 function renderVerification(){
  const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
@@ -293,6 +310,7 @@ function drawRSIMonitor(){
  $('rsiMonitorResults').innerHTML=matches.length?matches.map(x=>'<div class="monitor-coin"><span class="symbol">'+x.symbol+'</span><span class="monitor-value">'+x.rsi.toFixed(1)+'</span></div>').join(''):'<div class="empty">'+(valid?'No coins currently match this RSI range.':'Check the minimum and maximum values.')+'</div>';
 }
 async function getJson(url){
+ performance.restRequests++;
  const response=await fetch(url,{cache:'no-store'});
  if(!response.ok){
   const error=new Error('Binance HTTP '+response.status);
@@ -389,10 +407,12 @@ async function getCachedKlines(symbol,tf){
  const key=symbol+'|'+tf;
  const cached=candleCache.get(key);
  if(!cached){
+  performance.cacheMisses++;
   const rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
   candleCache.set(key,rows.slice(-120));
   return candleCache.get(key);
  }
+ performance.cacheHits++;
  // Resume from the most recent cached candle; this normally downloads only the newest candle(s).
  let rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&startTime='+cached[cached.length-1][0]+'&limit=120');
  if(rows.length>=120){
@@ -412,10 +432,26 @@ async function mapLimit(items,limit,fn){
  const workers=Array.from({length:Math.min(limit,items.length)},async()=>{
   while(index<items.length&&!rateLimited){
    const current=index++;
-   await fn(items[current],current);
+   performance.activeWorkers++;
+   performance.peakWorkers=Math.max(performance.peakWorkers,performance.activeWorkers);
+   try{await fn(items[current],current)}finally{performance.activeWorkers--;}
   }
  });
  await Promise.all(workers);
+}
+function renderPerformance(){
+ const p=performance.last;
+ if(!p)return;
+ $('perfDuration').textContent=p.duration.toFixed(1)+'s';
+ $('perfUniverse').textContent=p.universeSeconds.toFixed(1)+'s';
+ $('perfCoverage').textContent=p.checkedJobs+'/'+p.totalJobs+' jobs · '+p.coins+' coins';
+ $('perfPerCoin').textContent=p.coins?(p.duration/p.coins*1000).toFixed(0)+' ms':'—';
+ $('perfExtremes').textContent=p.fastest&&p.slowest?p.fastest.symbol+' '+p.fastest.ms.toFixed(0)+'ms / '+p.slowest.symbol+' '+p.slowest.ms.toFixed(0)+'ms':'—';
+ $('perfRequests').textContent=String(p.restRequests);
+ $('perfCache').textContent=p.cacheHits+' / '+p.cacheMisses;
+ $('perfWorkers').textContent=String(p.peakWorkers);
+ $('perfStatus').textContent='Kline jobs completed: '+p.checkedJobs+'/'+p.totalJobs+' · failures: '+p.failures+' · cache hit rate: '+(p.cacheHits+p.cacheMisses?Math.round(p.cacheHits/(p.cacheHits+p.cacheMisses)*100):0)+'% · elapsed includes universe loading and scan processing.';
+ $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.checkedJobs+'/'+x.totalJobs+'</td><td>'+x.failures+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="6">No completed scans yet.</td></tr>';
 }
 async function scan(){
  if(busy)return;
@@ -423,9 +459,14 @@ async function scan(){
  rateLimited=false;
  busy=true;
  const started=Date.now();
+ performance.restRequests=0;performance.cacheHits=0;performance.cacheMisses=0;performance.activeWorkers=0;performance.peakWorkers=0;
+ const coinTimes=new Map();
+ let universeMs=0,checkedJobs=0;
  try{
   status('Loading USDⓈ-M contracts…');
+  const universeStarted=Date.now();
   const symbols=await getUniverse();
+  universeMs=Date.now()-universeStarted;
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
   for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
   rsiMonitorStates.clear();
@@ -438,6 +479,7 @@ async function scan(){
   status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
+   const jobStarted=Date.now();
    try{
     const raw=await getCachedKlines(symbol,tf);
     // The selected global mode determines which candle feeds every calculation.
@@ -540,12 +582,20 @@ async function scan(){
     }
     lastProcessed.set(key,candles[latest].closeTime);
    }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
+   const jobMs=Date.now()-jobStarted;checkedJobs++;
+   const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
    completed++;
    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
   });
   draw();
   drawRSIMonitor();
   renderVerification();
+  const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
+  coinAverages.sort((a,b)=>a.ms-b.ms);
+  const duration=(Date.now()-started)/1000;
+  performance.last={duration,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
+  performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
+  renderPerformance();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
    status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
@@ -634,6 +684,7 @@ $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
 $('clearBtn').onclick=()=>{alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();status('All dashboard alerts cleared');};
 render();
+renderPerformance();
 loadSettings();
 draw();
 function updateUniverseControls(){
