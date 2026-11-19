@@ -534,6 +534,8 @@ async function scan(){
    return fast[fast.length-1]-signal;
   };
   const passes15mConfirmation=async(symbol,side)=>{
+   // 15m confirmation is intentionally bullish-only; bearish alerts bypass it.
+   if(side!=='bull')return true;
    if(!confirm15mBull&&!confirm15mMacd)return true;
    if(!confirmation15mPromises.has(symbol)){
     confirmation15mPromises.set(symbol,(async()=>{
