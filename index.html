@@ -494,7 +494,7 @@ async function scan(){
        const touched=retestSide==='bull'?candles[i].l<=line*(1+tolerance):candles[i].h>=line*(1-tolerance);
        const reclaimed=retestSide==='bull'?close>line:close<line;
        if(touched&&reclaimed){
-        const alert={symbol,tf,time:candles[i].closeTime,st:line,extreme:retestSide==='bull'?candles[i].l:candles[i].h,close};
+        const alert={symbol,tf,time:candles[i].closeTime,rsi:displayRsiSeries[i],st:line,extreme:retestSide==='bull'?candles[i].l:candles[i].h,close};
         addAlert(tf,retestSide,'retest',alert);
         retestArmed.set(rearmKey,false);
        }
