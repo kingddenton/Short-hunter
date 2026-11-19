@@ -240,6 +240,7 @@ const seen=new Set();
 let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
 let recentErrors=[];
 let marketChanges=new Map();
+const candleCache=new Map();
 const status=s=>{$('status').textContent=s};
 function renderVerification(){
  const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
@@ -325,7 +326,7 @@ async function getUniverse(){
  const selected=new Map();
  gainers.forEach(x=>selected.set(x.symbol,x));
  losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
- const universe=[...selected.values()].sort((a,b)=>a.change-b.change);
+ const universe=[...selected.values()].sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,100).sort((a,b)=>a.change-b.change);
  marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
  $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
@@ -384,6 +385,28 @@ function supertrend(candles){
  const line=dir.map((d,i)=>d===1?lower[i]:d===-1?upper[i]:null);
  return {direction:dir,line};
 }
+async function getCachedKlines(symbol,tf){
+ const key=symbol+'|'+tf;
+ const cached=candleCache.get(key);
+ if(!cached){
+  const rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+  candleCache.set(key,rows.slice(-120));
+  return candleCache.get(key);
+ }
+ // Resume from the most recent cached candle; this normally downloads only the newest candle(s).
+ let rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&startTime='+cached[cached.length-1][0]+'&limit=120');
+ if(rows.length>=120){
+  // A long pause or stale cache: rebuild a fresh rolling history rather than risk missing candles.
+  rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+  candleCache.set(key,rows.slice(-120));
+  return candleCache.get(key);
+ }
+ const merged=new Map(cached.map(row=>[Number(row[0]),row]));
+ for(const row of rows)merged.set(Number(row[0]),row);
+ const updated=[...merged.values()].sort((a,b)=>Number(a[0])-Number(b[0])).slice(-120);
+ candleCache.set(key,updated);
+ return updated;
+}
 async function mapLimit(items,limit,fn){
  let index=0;
  const workers=Array.from({length:Math.min(limit,items.length)},async()=>{
@@ -416,7 +439,7 @@ async function scan(){
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    try{
-    const raw=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+    const raw=await getCachedKlines(symbol,tf);
     // The selected global mode determines which candle feeds every calculation.
     const candleRows=scanMode==='live'?raw:raw.slice(0,-1);
     const candles=candleRows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
