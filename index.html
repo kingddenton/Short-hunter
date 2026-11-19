@@ -211,7 +211,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
   <div class="perf-metric"><span>Peak active workers</span><strong id="perfWorkers">—</strong></div>
  </div>
  <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div>
- <table class="perf-table"><thead><tr><th>Cycle</th><th>Duration</th><th>Coins</th><th>Jobs</th><th>Errors</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="6">No completed scans yet.</td></tr></tbody></table>
+ <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Jobs</th><th>Errors</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="7">No completed scans yet.</td></tr></tbody></table>
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
@@ -451,7 +451,7 @@ function renderPerformance(){
  $('perfCache').textContent=p.cacheHits+' / '+p.cacheMisses;
  $('perfWorkers').textContent=String(p.peakWorkers);
  $('perfStatus').textContent='Kline jobs completed: '+p.checkedJobs+'/'+p.totalJobs+' · failures: '+p.failures+' · cache hit rate: '+(p.cacheHits+p.cacheMisses?Math.round(p.cacheHits/(p.cacheHits+p.cacheMisses)*100):0)+'% · elapsed includes universe loading and scan processing.';
- $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.checkedJobs+'/'+x.totalJobs+'</td><td>'+x.failures+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="6">No completed scans yet.</td></tr>';
+ $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.workers+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.checkedJobs+'/'+x.totalJobs+'</td><td>'+x.failures+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="7">No completed scans yet.</td></tr>';
 }
 async function scan(){
  if(busy)return;
@@ -593,7 +593,7 @@ async function scan(){
   const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
   coinAverages.sort((a,b)=>a.ms-b.ms);
   const duration=(Date.now()-started)/1000;
-  performance.last={duration,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
+  performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
   performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
   renderPerformance();
   if(rateLimited){
