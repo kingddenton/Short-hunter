@@ -25,12 +25,10 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .alert-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
 .alert-filter{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#0e1729;font-size:12px}
 .alert-filter input{margin:0}
-.alert-entry{display:grid;grid-template-columns:auto 1fr auto;gap:5px 8px;align-items:center;padding:8px 0;border-top:1px solid #24314a;font-size:12px}
+.alert-entry{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a;font-size:12px}
 .alert-entry:first-child{border-top:0}
-.alert-kind{font-size:10px;font-weight:800;letter-spacing:.3px;padding:3px 6px;border-radius:5px;white-space:nowrap}
-.kind-state{color:#7ee7b8;background:#123b31}.kind-reversal{color:#83bdff;background:#142f50}.kind-retest{color:#ffc078;background:#493019}.kind-near{color:#d1a5ff;background:#39244f}
-.alert-meta{grid-column:2/4;color:var(--muted);font-size:10px}
-.alert-price{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+.alert-entry .symbol{flex:0 0 auto}
+.alert-details{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:11px}
 
 .rsi-panel h2{font-size:15px;margin:0 0 8px}
 .rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
@@ -246,7 +244,7 @@ function addAlert(tf,side,type,data){
  const list=alertFeed.get(key);
  const id=type+'|'+data.symbol+'|'+data.time;
  if(list.some(a=>a.id===id))return;
- list.unshift({id,tf,side,type,...data});
+ list.unshift({id,tf,side,type,...data,change24h:marketChanges.get(data.symbol)});
  if(type==='state'){
   const old=list.findIndex((a,i)=>i>0&&a.type==='state'&&a.symbol===data.symbol);
   if(old>0)list.splice(old,1);
@@ -261,9 +259,10 @@ function draw(){
   const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)).slice(0,10);
   el.innerHTML=list.length?list.map(a=>{
    const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
-   const price=a.extreme!==undefined?(side==='bull'?'Low ':'High ')+a.extreme.toPrecision(6):'';
-   const detail=a.st!==undefined?'ST '+a.st.toPrecision(6)+' · Close '+a.close.toPrecision(6):a.rsi!==null&&a.rsi!==undefined?'RSI '+a.rsi.toFixed(1):'';
-   return '<div class="alert-entry"><span class="alert-kind kind-'+a.type+'">'+labels[a.type]+'</span><span class="symbol">'+a.symbol+'</span><span class="alert-price">'+price+'</span><span class="alert-meta">'+new Date(a.time).toLocaleString()+(detail?' · '+detail:'')+'</span></div>';
+   const rsi=Number.isFinite(a.rsi)?'RSI '+a.rsi.toFixed(1):'';
+   const change=Number.isFinite(a.change24h)?'24h '+(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'';
+   const details=[labels[a.type],rsi,change].filter(Boolean).join(' · ');
+   return '<div class="alert-entry"><span class="symbol">'+a.symbol+'</span><span class="alert-details">'+details+'</span></div>';
   }).join(''):'<div class="empty">No alerts match this filter</div>';
  }
 }
