@@ -251,6 +251,7 @@ const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new 
 const alertFeed=new Map();
 const rsiMonitorStates=new Map();
 const retestArmed=new Map();
+const nearLineArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
 const nearLineAlerts={bull:[],bear:[]};
 const lastProcessed=new Map();
@@ -278,12 +279,12 @@ function addAlert(tf,side,type,data){
  if(!alertFeed.has(key))alertFeed.set(key,[]);
  const list=alertFeed.get(key);
  const id=type+'|'+data.symbol+'|'+data.time;
- if(list.some(a=>a.id===id))return;
- list.unshift({id,tf,side,type,...data,change24h:marketChanges.get(data.symbol)});
- if(type==='state'){
-  const old=list.findIndex((a,i)=>i>0&&a.type==='state'&&a.symbol===data.symbol);
-  if(old>0)list.splice(old,1);
- }
+ // Keep exactly one row for each coin and alert type in this timeframe/direction.
+ // A fresh signal replaces the older row; repeated scans of the same candle only refresh it.
+ const existing=list.findIndex(a=>a.type===type&&a.symbol===data.symbol);
+ const alert={id,tf,side,type,...data,change24h:marketChanges.get(data.symbol)};
+ if(existing>=0)list.splice(existing,1);
+ list.unshift(alert);
  list.sort((a,b)=>b.time-a.time);
  if(list.length>100)list.length=100;
 }
@@ -577,8 +578,12 @@ async function scan(){
       const noTouchNear=nearSide==='bull'
        ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
        : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
-      if(nearThresholdPass&&noTouchNear){
+      const nearKey=symbol+'|'+tf+'|'+nearSide;
+      const nearWasArmed=nearLineArmed.has(nearKey)?nearLineArmed.get(nearKey):true;
+      if(!noTouchNear)nearLineArmed.set(nearKey,true);
+      else if(nearThresholdPass&&nearWasArmed){
        addAlert(tf,nearSide,'near',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i],st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
+       nearLineArmed.set(nearKey,false);
       }
      }
      // Independent retest detector: trend must already be established before the touch candle.
