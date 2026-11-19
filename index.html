@@ -207,6 +207,7 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
  </div>
 </section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
+<div id="alertFilterBar"></div>
 <section class="grid" id="dashboard"></section>
 </main>
 <script>
@@ -234,7 +235,8 @@ function renderVerification(){
 }
 function render(){
  const filterHtml='<div class="alert-filters"><b style="font-size:12px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="reversal" checked> Reversal</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div>';
- $('dashboard').innerHTML=filterHtml+TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ $('alertFilterBar').innerHTML=filterHtml;
+ $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  draw();
 }
