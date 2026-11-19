@@ -749,6 +749,8 @@ $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
+$('confirm15mBull').onchange=saveSettings;
+$('confirm15mMacd').onchange=saveSettings;
 $('positive24hBothSides').onchange=()=>{saveSettings();draw();};
 $('negative24hBothSides').onchange=()=>{saveSettings();draw();};
 $('saveSettingsBtn').onclick=saveSettings;
