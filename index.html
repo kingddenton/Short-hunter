@@ -474,6 +474,7 @@ async function scan(){
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
+  const startedJobKeys=new Set();
   const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
   $('workerCount').value=workerCount;
   const scanMode=operationMode;
@@ -481,6 +482,7 @@ async function scan(){
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    startedJobs++;
+   startedJobKeys.add(symbol+'|'+tf);
    const jobStarted=Date.now();
    try{
     const raw=await getCachedKlines(symbol,tf);
@@ -595,8 +597,7 @@ async function scan(){
   const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
   coinAverages.sort((a,b)=>a.ms-b.ms);
   const duration=(Date.now()-started)/1000;
-  const startedKeys=new Set([...coinTimes.keys()]);
-  const missingJobs=jobs.filter(j=>!startedKeys.has(j.symbol+'|'+j.tf)).map(j=>j.symbol+' '+j.tf);
+  const missingJobs=jobs.filter(j=>!startedJobKeys.has(j.symbol+'|'+j.tf)).map(j=>j.symbol+' '+j.tf);
   const notStarted=jobs.length-startedJobs;
   performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,startedJobs,finishedJobs,notStarted,missingJobs,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
   performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
