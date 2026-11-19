@@ -461,7 +461,7 @@ async function scan(){
       }
      }
      // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
-     const nearLine=stLines[i];
+     const nearLine=stLines[i],close=candles[i].c;
      if(Number.isFinite(nearLine)&&nearLine>0&&before===after&&(after===1||after===-1)){
       const nearTolerance=Math.max(0.01,Math.min(2,Number($('nearLineTolerance').value)||0.2))/100;
       const nearSide=after===1?'bull':'bear';
@@ -474,7 +474,7 @@ async function scan(){
       }
      }
      // Independent retest detector: trend must already be established before the touch candle.
-     const line=stLines[i],close=candles[i].c;
+     const line=stLines[i];
      if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
       const retestSide=after===1?'bull':'bear';
       const retestThresholdPass=retestSide==='bull'?bullishChangePass:bearishChangePass;
@@ -504,7 +504,6 @@ async function scan(){
   });
   draw();
   drawRSIMonitor();
-  draw();
   renderVerification();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
