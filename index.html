@@ -100,6 +100,7 @@ body,body *{font-size:16px!important}
   <select id="refreshInterval" style="width:auto;min-width:110px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="10000">10 seconds</option><option value="30000">30 seconds</option><option value="60000" selected>60 seconds</option><option value="0">Continuous</option></select>
   <label class="status" for="workerCount">Concurrent workers (1–20)</label>
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend bullish confirmation (bullish alerts only)</label>
   <label class="status" for="bullChangeMin">Bullish 24H change above (%)</label>
   <input id="bullChangeMin" type="number" step="0.1" value="0" style="width:80px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" for="bearChangeMin">Bearish 24H change at or below − (%)</label>
@@ -482,7 +483,22 @@ async function scan(){
   const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
   $('workerCount').value=workerCount;
   const scanMode=operationMode;
-  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
+  const confirm15mBull=$('confirm15mBull').checked;
+  const confirmation15mPromises=new Map();
+  const passes15mBullishConfirmation=async(symbol)=>{
+   if(!confirm15mBull)return true;
+   if(!confirmation15mPromises.has(symbol)){
+    confirmation15mPromises.set(symbol,(async()=>{
+     const raw15=await getCachedKlines(symbol,'15m');
+     const rows15=scanMode==='live'?raw15:raw15.slice(0,-1);
+     const candles15=rows15.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+     const st15=supertrend(candles15);
+     return !!(st15&&candles15.length&&st15.direction[st15.direction.length-1]===1);
+    })());
+   }
+   return confirmation15mPromises.get(symbol);
+  };
+  status(''Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    startedJobs++;
@@ -520,8 +536,10 @@ async function scan(){
     const bullishThreshold=bullishThresholdRaw===''?0:Number(bullishThresholdRaw);
     const bearishThreshold=bearishThresholdRaw===''?0:Math.abs(Number(bearishThresholdRaw));
     const bullishChangePass=Number.isFinite(change24h)&&Number.isFinite(bullishThreshold)&&change24h>bullishThreshold;
+    const bullish15mConfirmationPass=await passes15mBullishConfirmation(symbol);
+    const bullishAlertPass=bullishChangePass&&bullish15mConfirmationPass;
     const bearishChangePass=Number.isFinite(change24h)&&Number.isFinite(bearishThreshold)&&change24h<=-bearishThreshold;
-    if(currentDirection===1&&bullishChangePass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
+    if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
      addAlert(tf,'bull','state',state);
@@ -544,7 +562,7 @@ async function scan(){
      if(side){
       const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
       const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
-      const reversalPass=(side==='bull'?bullishChangePass:bearishChangePass)&&rsiPasses(rsiSeries||[],i,rsiConfig,side);
+      const reversalPass=(side==='bull'?bullishAlertPass:bearishChangePass)&&rsiPasses(rsiSeries||[],i,rsiConfig,side);
       if(reversalPass){
        scanStats[tf].reversals++;
        newCount++;
@@ -556,7 +574,7 @@ async function scan(){
      if(Number.isFinite(nearLine)&&nearLine>0&&before===after&&(after===1||after===-1)){
       const nearTolerance=Math.max(0.01,Math.min(2,Number($('nearLineTolerance').value)||0.2))/100;
       const nearSide=after===1?'bull':'bear';
-      const nearThresholdPass=nearSide==='bull'?bullishChangePass:bearishChangePass;
+      const nearThresholdPass=nearSide==='bull'?bullishAlertPass:bearishChangePass;
       const noTouchNear=nearSide==='bull'
        ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
        : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
@@ -568,7 +586,7 @@ async function scan(){
      const line=stLines[i];
      if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
       const retestSide=after===1?'bull':'bear';
-      const retestThresholdPass=retestSide==='bull'?bullishChangePass:bearishChangePass;
+      const retestThresholdPass=retestSide==='bull'?bullishAlertPass:bearishChangePass;
       const rearmKey=symbol+'|'+tf+'|'+retestSide;
       const tolerance=Math.max(0,Math.min(2,Number($('retestTolerance').value)||0))/100;
       const rearmDistance=Math.max(0.05,Math.min(5,Number($('retestRearm').value)||0.3))/100;
@@ -643,7 +661,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','bullChangeMin','bearChangeMin','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','bullChangeMin','bearChangeMin','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
