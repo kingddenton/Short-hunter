@@ -112,7 +112,8 @@ body .alert-entry > .alert-change.change-neutral{
   <select id="refreshInterval" style="width:auto;min-width:110px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="10000">10 seconds</option><option value="30000">30 seconds</option><option value="60000" selected>60 seconds</option><option value="0">Continuous</option></select>
   <label class="status" for="workerCount">Concurrent workers (1–20)</label>
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
-  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend bullish confirmation (bullish alerts only)</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend direction confirmation</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mMacd" type="checkbox" style="width:auto"> 15m MACD histogram direction confirmation (above zero bullish / below zero bearish)</label>
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBothSides" type="checkbox" style="width:auto"> Positive 24H coins: allow on both bullish and bearish sides</label>
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="negative24hBothSides" type="checkbox" style="width:auto"> Negative 24H coins: allow on both bullish and bearish sides</label>
  </div>
@@ -502,19 +503,45 @@ async function scan(){
   $('workerCount').value=workerCount;
   const scanMode=operationMode;
   const confirm15mBull=$('confirm15mBull').checked;
+  const confirm15mMacd=$('confirm15mMacd').checked;
   const confirmation15mPromises=new Map();
-  const passes15mBullishConfirmation=async(symbol)=>{
-   if(!confirm15mBull)return true;
+  const emaLast=(values,period)=>{
+   if(values.length<period)return null;
+   const alpha=2/(period+1);
+   let ema=values[0];
+   for(let i=1;i<values.length;i++)ema=values[i]*alpha+ema*(1-alpha);
+   return ema;
+  };
+  const macdHistogramLast=(values)=>{
+   if(values.length<35)return null;
+   const fast=[],slow=[];
+   const af=2/13,as=2/27;
+   let ef=values[0],es=values[0];
+   for(let i=0;i<values.length;i++){
+    if(i>0){ef=values[i]*af+ef*(1-af);es=values[i]*as+es*(1-as);}
+    fast.push(ef-es);
+   }
+   const signalAlpha=2/10;
+   let signal=fast[0];
+   for(let i=1;i<fast.length;i++)signal=fast[i]*signalAlpha+signal*(1-signalAlpha);
+   return fast[fast.length-1]-signal;
+  };
+  const passes15mConfirmation=async(symbol,side)=>{
+   if(!confirm15mBull&&!confirm15mMacd)return true;
    if(!confirmation15mPromises.has(symbol)){
     confirmation15mPromises.set(symbol,(async()=>{
      const raw15=await getCachedKlines(symbol,'15m');
      const rows15=scanMode==='live'?raw15:raw15.slice(0,-1);
      const candles15=rows15.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
-     const st15=supertrend(candles15);
-     return !!(st15&&candles15.length&&st15.direction[st15.direction.length-1]===1);
+     const direction=confirm15mBull?supertrend(candles15)?.direction?.at(-1):null;
+     const histogram=confirm15mMacd?macdHistogramLast(candles15.map(c=>c.c)):null;
+     return {direction,histogram};
     })());
    }
-   return confirmation15mPromises.get(symbol);
+   const result=await confirmation15mPromises.get(symbol);
+   if(confirm15mBull&&result.direction!==(side==='bull'?1:-1))return false;
+   if(confirm15mMacd&&(!Number.isFinite(result.histogram)||(side==='bull'?result.histogram<=0:result.histogram>=0)))return false;
+   return true;
   };
   status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
@@ -548,9 +575,8 @@ async function scan(){
     const latest=candles.length-1;
     const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
     const currentDirection=directions[latest];
-    const bullish15mConfirmationPass=await passes15mBullishConfirmation(symbol);
-    const bullishAlertPass=bullish15mConfirmationPass;
-    const bearishChangePass=true;
+    const bullishAlertPass=await passes15mConfirmation(symbol,'bull');
+    const bearishChangePass=await passes15mConfirmation(symbol,'bear');
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
@@ -677,7 +703,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
