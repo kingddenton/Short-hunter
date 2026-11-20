@@ -366,9 +366,10 @@ function macdHistogramSeries(values){
  return out;
 }
 function processEmaCandles(symbol,tf,candles){
- if(!EMA_TFS.includes(tf)||!candles||candles.length<36||!$('emaEnabled_'+tf).checked)return;
+ if(!EMA_TFS.includes(tf)||!candles||candles.length<36)return;
+ const key=symbol+'|'+tf,latest=candles.length-1,stored=emaLastProcessed.get(key);
+ if(!$('emaEnabled_'+tf).checked){emaLastProcessed.set(key,candles[latest].closeTime);return;}
  const closes=candles.map(c=>c.c),e7=emaSeries(closes,7),e25=emaSeries(closes,25),hist=macdHistogramSeries(closes);
- const key=symbol+'|'+tf,stored=emaLastProcessed.get(key),latest=candles.length-1;
  if(stored===undefined){emaLastProcessed.set(key,candles[latest].closeTime);return;}
  for(let i=1;i<=latest;i++){
   if(candles[i].closeTime<=stored)continue;
@@ -378,6 +379,7 @@ function processEmaCandles(symbol,tf,candles){
   const watchKey=key+'|'+side;
   const macdAligned=side==='bull'?hist[i]>0&&hist[i]>hist[i-1]:side==='bear'?hist[i]<0&&hist[i]<hist[i-1]:false;
   if(crossed){
+   emaWatchState.delete(key+'|'+(side==='bull'?'bear':'bull'));
    emaWatchState.set(watchKey,{symbol,tf,side,status:macdAligned?'confirmed':'watch',time:candles[i].closeTime});
    setEmaAlert(tf,side,symbol,macdAligned?'confirmed':'watch',candles[i].closeTime);
   }else if(side){
