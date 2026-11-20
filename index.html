@@ -159,6 +159,23 @@ body .alert-entry > .alert-change.change-neutral{
   <div class="ema-side-box bear"><h3>5m</h3><div id="ema-5m-bear"><div class="empty">No alerts yet</div></div></div>
   <div class="ema-side-box bear"><h3>1h</h3><div id="ema-1h-bear"><div class="empty">No alerts yet</div></div></div>
  </div>
+ <h3 style="font-size:14px;margin:14px 0 7px;color:var(--accent)">EMA 7 / 25 TOUCH ALERTS</h3>
+ <p class="intro" style="color:var(--muted);font-size:13px;margin:0 0 8px">Alerts when EMA 7 approaches EMA 25 within the selected distance, before or at a possible crossover. A touch is not a confirmed crossover.</p>
+ <div class="ema-controls"><label class="ema-toggle">Near-touch distance (%) <input id="emaTouchDistance" type="number" min="0.01" max="1" step="0.01" value="0.10" style="width:76px"></label></div>
+ <h3 style="font-size:14px;color:var(--green);margin:0 0 7px">BULLISH APPROACH · EMA 7 FROM BELOW</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box bull"><h3>1m</h3><div id="emaTouch-1m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>3m</h3><div id="emaTouch-3m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>5m</h3><div id="emaTouch-5m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>1h</h3><div id="emaTouch-1h-bull"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;color:var(--red);margin:14px 0 7px">BEARISH APPROACH · EMA 7 FROM ABOVE</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box bear"><h3>1m</h3><div id="emaTouch-1m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>3m</h3><div id="emaTouch-3m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>5m</h3><div id="emaTouch-5m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>1h</h3><div id="emaTouch-1h-bear"><div class="empty">No alerts yet</div></div></div>
+ </div>
 </section>
 <section class="panel ema-panel" id="rsiMacdAlertPanel">
  <h2 style="font-size:16px;margin:0 0 6px">RSI ABOVE 70 + MACD ALERTS</h2>
@@ -325,6 +342,8 @@ const EMA_TFS=['1m','3m','5m','1h'];
 const EMA_ALERTS=new Map();
 const emaLastProcessed=new Map();
 const emaWatchState=new Map();
+const EMA_TOUCH_ALERTS=new Map();
+const emaTouchArmed=new Map();
 const RSI_MACD_TFS=['1m','3m','5m','1h'];
 const RSI_MACD_ALERTS=new Map();
 const rsiMacdLastProcessed=new Map();
@@ -358,6 +377,23 @@ function renderEmaAlerts(){
   const list=EMA_ALERTS.get(emaAlertKey(tf,side))||[];
   el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">'+(a.status==='confirmed'?'CONFIRMED':'EMA WATCH')+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
  }
+}
+function renderEmaTouchAlerts(){
+ for(const tf of EMA_TFS)for(const side of ['bull','bear']){
+  const el=$('emaTouch-'+tf+'-'+side);if(!el)continue;
+  const list=EMA_TOUCH_ALERTS.get(tf+'|'+side)||[];
+  el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">TOUCH · '+a.distance.toFixed(3)+'%<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+ }
+}
+function addEmaTouchAlert(tf,side,symbol,distance,time){
+ const key=tf+'|'+side,list=EMA_TOUCH_ALERTS.get(key)||[];
+ const old=list.findIndex(a=>a.symbol===symbol);
+ if(old>=0)list.splice(old,1);
+ list.unshift({symbol,distance,time});
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>10)list.length=10;
+ EMA_TOUCH_ALERTS.set(key,list);
+ renderEmaTouchAlerts();
 }
 function setEmaAlert(tf,side,symbol,status,time){
  const key=emaAlertKey(tf,side),list=EMA_ALERTS.get(key)||[];
@@ -403,6 +439,17 @@ function processEmaCandles(symbol,tf,candles){
   const priorSide=e7[i-1]>e25[i-1]?'bull':e7[i-1]<e25[i-1]?'bear':null;
   const side=e7[i]>e25[i]?'bull':e7[i]<e25[i]?'bear':null;
   const crossed=side&&priorSide&&side!==priorSide;
+  const emaGap=Math.abs(e7[i]-e25[i])/e25[i]*100;
+  const priorGap=Math.abs(e7[i-1]-e25[i-1])/e25[i-1]*100;
+  const touchDistance=Math.max(0.01,Math.min(1,Number($('emaTouchDistance').value)||0.10));
+  const touchSide=priorSide==='bear'?'bull':priorSide==='bull'?'bear':side==='bull'?'bull':side==='bear'?'bear':null;
+  const touchKey=key+'|'+(touchSide||'none');
+  let touchArmed=emaTouchArmed.has(touchKey)?emaTouchArmed.get(touchKey):true;
+  if(emaGap>touchDistance*2){touchArmed=true;emaTouchArmed.set(touchKey,true);}
+  if(touchSide&&touchArmed&&emaGap<=touchDistance&&emaGap<priorGap){
+   addEmaTouchAlert(tf,touchSide,symbol,emaGap,candles[i].closeTime);
+   emaTouchArmed.set(touchKey,false);
+  }
   const watchKey=key+'|'+side;
   const macdAligned=side==='bull'?hist[i]>0&&hist[i]>hist[i-1]:side==='bear'?hist[i]<0&&hist[i]<hist[i-1]:false;
   if(crossed){
@@ -460,6 +507,7 @@ function render(){
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  draw();
  renderEmaAlerts();
+ renderEmaTouchAlerts();
  renderRsiMacdAlerts();
 }
 function addAlert(tf,side,type,data){
@@ -898,7 +946,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -944,6 +992,7 @@ $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
+$('emaTouchDistance').onchange=saveSettings;
 $('confirm15mBull').onchange=saveSettings;
 $('confirm15mMacd').onchange=saveSettings;
 $('positive24hBothSides').onchange=()=>{saveSettings();draw();};
@@ -952,13 +1001,14 @@ $('saveSettingsBtn').onclick=saveSettings;
 for(const tf of EMA_TFS)$('emaEnabled_'+tf).onchange=saveSettings;
 for(const tf of RSI_MACD_TFS)$('rsiMacdEnabled_'+tf).onchange=saveSettings;
 function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
-$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();emaLastProcessed.clear();emaWatchState.clear();rsiMacdLastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
+$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();emaLastProcessed.clear();emaWatchState.clear();emaTouchArmed.clear();rsiMacdLastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
-$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();RSI_MACD_ALERTS.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
+$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();EMA_TOUCH_ALERTS.clear();emaTouchArmed.clear();RSI_MACD_ALERTS.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderEmaTouchAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
 render();
 renderPerformance();
+renderEmaTouchAlerts();
 renderRsiMacdAlerts();
 loadSettings();
 draw();
