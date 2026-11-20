@@ -160,6 +160,30 @@ body .alert-entry > .alert-change.change-neutral{
   <div class="ema-side-box bear"><h3>1h</h3><div id="ema-1h-bear"><div class="empty">No alerts yet</div></div></div>
  </div>
 </section>
+<section class="panel ema-panel" id="rsiMacdAlertPanel">
+ <h2 style="font-size:16px;margin:0 0 6px">RSI ABOVE 70 + MACD ALERTS</h2>
+ <p class="intro" style="color:var(--muted);font-size:13px;margin:0 0 8px">RSI(14) must be above 70. Shrinking MACD requires a positive histogram contracting for at least 2 consecutive candles. Negative MACD triggers when the histogram is below zero. Alert-only; no effect on qualification.</p>
+ <div class="ema-controls">
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_1m" checked> 1m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_3m" checked> 3m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_5m" checked> 5m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_1h" checked> 1h</label>
+ </div>
+ <h3 style="font-size:14px;color:#FF8C42;margin:0 0 7px">RSI ABOVE 70 · SHRINKING POSITIVE MACD</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box"><h3>1m</h3><div id="rsiMacd-1m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>3m</h3><div id="rsiMacd-3m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>5m</h3><div id="rsiMacd-5m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>1h</h3><div id="rsiMacd-1h-shrink"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;color:var(--red);margin:14px 0 7px">RSI ABOVE 70 · NEGATIVE MACD</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box"><h3>1m</h3><div id="rsiMacd-1m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>3m</h3><div id="rsiMacd-3m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>5m</h3><div id="rsiMacd-5m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>1h</h3><div id="rsiMacd-1h-negative"><div class="empty">No alerts yet</div></div></div>
+ </div>
+</section>
 <section class="panel rsi-panel">
  <h2>RSI CONTROL</h2>
  <p class="intro">RSI period is fixed at 14 for every timeframe. Set a minimum and maximum RSI range independently for bullish and bearish confirmations. Enabled conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
@@ -301,6 +325,9 @@ const EMA_TFS=['1m','3m','5m','1h'];
 const EMA_ALERTS=new Map();
 const emaLastProcessed=new Map();
 const emaWatchState=new Map();
+const RSI_MACD_TFS=['1m','3m','5m','1h'];
+const RSI_MACD_ALERTS=new Map();
+const rsiMacdLastProcessed=new Map();
 const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0,operationMode='closed';
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
@@ -392,6 +419,40 @@ function processEmaCandles(symbol,tf,candles){
  }
  emaLastProcessed.set(key,candles[latest].closeTime);
 }
+function rsiMacdKey(tf,type){return tf+'|'+type;}
+function renderRsiMacdAlerts(){
+ for(const tf of RSI_MACD_TFS)for(const type of ['shrink','negative']){
+  const el=$('rsiMacd-'+tf+'-'+type);if(!el)continue;
+  const list=RSI_MACD_ALERTS.get(rsiMacdKey(tf,type))||[];
+  el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">RSI '+a.rsi.toFixed(1)+' · '+a.hist.toFixed(6)+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+ }
+}
+function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
+ const key=rsiMacdKey(tf,type),list=RSI_MACD_ALERTS.get(key)||[];
+ const old=list.findIndex(a=>a.symbol===symbol);
+ if(old>=0)list.splice(old,1);
+ list.unshift({symbol,rsi,hist,time});
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>10)list.length=10;
+ RSI_MACD_ALERTS.set(key,list);
+ renderRsiMacdAlerts();
+}
+function processRsiMacdCandles(symbol,tf,candles){
+ if(!RSI_MACD_TFS.includes(tf)||!candles||candles.length<36)return;
+ const key=symbol+'|'+tf,latest=candles.length-1,stored=rsiMacdLastProcessed.get(key);
+ if(!$('rsiMacdEnabled_'+tf).checked){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
+ const rsi=calculateRsiSeries(candles,14),hist=macdHistogramSeries(candles);
+ if(stored===undefined){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
+ for(let i=2;i<=latest;i++){
+  if(candles[i].closeTime<=stored||!Number.isFinite(rsi[i])||rsi[i]<=70||!Number.isFinite(hist[i]))continue;
+  if(hist[i]<0){
+   addRsiMacdAlert(tf,'negative',symbol,rsi[i],hist[i],candles[i].closeTime);
+  }else if(hist[i]>0&&Number.isFinite(hist[i-1])&&Number.isFinite(hist[i-2])&&hist[i]<hist[i-1]&&hist[i-1]<hist[i-2]){
+   addRsiMacdAlert(tf,'shrink',symbol,rsi[i],hist[i],candles[i].closeTime);
+  }
+ }
+ rsiMacdLastProcessed.set(key,candles[latest].closeTime);
+}
 function render(){
  const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="reversal" checked> Reversal</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-reversal"></i>Reversal</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
@@ -399,6 +460,7 @@ function render(){
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  draw();
  renderEmaAlerts();
+ renderRsiMacdAlerts();
 }
 function addAlert(tf,side,type,data){
  const key=tf+'|'+side;
@@ -674,6 +736,7 @@ async function scan(){
     const candleRows=scanMode==='live'?raw:raw.slice(0,-1);
     const candles=candleRows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
     if(EMA_TFS.includes(tf))processEmaCandles(symbol,tf,candles);
+    processRsiMacdCandles(symbol,tf,candles);
     const st=supertrend(candles);
     if(!st||candles.length<2)return;
     const directions=st.direction;
@@ -786,6 +849,7 @@ async function scan(){
     const rows=scanMode==='live'?raw:raw.slice(0,-1);
     const candles=rows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
     processEmaCandles(symbol,tf,candles);
+    processRsiMacdCandles(symbol,tf,candles);
    }catch(error){if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
   });
   draw();
@@ -834,7 +898,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -886,14 +950,16 @@ $('positive24hBothSides').onchange=()=>{saveSettings();draw();};
 $('negative24hBothSides').onchange=()=>{saveSettings();draw();};
 $('saveSettingsBtn').onclick=saveSettings;
 for(const tf of EMA_TFS)$('emaEnabled_'+tf).onchange=saveSettings;
+for(const tf of RSI_MACD_TFS)$('rsiMacdEnabled_'+tf).onchange=saveSettings;
 function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
-$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();emaLastProcessed.clear();emaWatchState.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
+$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();emaLastProcessed.clear();emaWatchState.clear();rsiMacdLastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
-$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();status('All dashboard alerts cleared');};
+$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();RSI_MACD_ALERTS.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
 render();
 renderPerformance();
+renderRsiMacdAlerts();
 loadSettings();
 draw();
 function updateUniverseControls(){
