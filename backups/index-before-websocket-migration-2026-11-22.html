@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Short Hunter — Basic Supertrend Scanner</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26344f;--text:#e8eefb;--muted:#91a2bf;--green:#27c58b;--red:#f16b78}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:16px;border-bottom:1px solid var(--line);background:#0e1628}h1{font-size:21px;margin:0}main{max-width:1300px;margin:auto;padding:14px}
+.panel,.tfcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.controls{margin-bottom:14px}
+button{font:inherit;color:var(--text);background:#203454;border:1px solid #344563;border-radius:8px;padding:9px 14px;min-height:40px;font-weight:650;cursor:pointer}
+button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5b2632;border-color:#8b3d4c}button:disabled{opacity:.5;cursor:not-allowed}
+.mode-closed{border:1px solid var(--green);color:var(--green);font-weight:800}.mode-live{border:1px solid #83bdff;color:#83bdff;font-weight:800}.status{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf1 tf3" "tf15 tf5";gap:12px}
+#dashboard .tfcard:nth-child(1){grid-area:tf1}
+#dashboard .tfcard:nth-child(2){grid-area:tf3}
+#dashboard .tfcard:nth-child(3){grid-area:tf5}
+#dashboard .tfcard:nth-child(4){grid-area:tf15}
+.tfhead{font-weight:750;font-size:18px;margin-bottom:10px}.sides{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.side{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
+.side h3{font-size:12px;letter-spacing:.5px;margin:0 0 8px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
+.alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.rsi-value{color:#FF8C42}.positive{color:var(--green);font-weight:750}.negative{color:var(--red);font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+.ema-panel{margin:14px 0}
+.ema-alert-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ema-side-box{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
+.ema-side-box h3{margin:0 0 8px;font-size:14px}
+.ema-side-box.bull h3{color:var(--green)}.ema-side-box.bear h3{color:var(--red)}
+.ema-alert-row{display:flex;justify-content:space-between;gap:6px;padding:7px 0;border-top:1px solid #24314a;font-size:13px}
+.ema-alert-row:first-of-type{border-top:0}
+.ema-alert-status{font-size:11px;color:var(--muted);text-align:right}
+.ema-controls{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
+.ema-toggle{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:13px}
+@media(max-width:850px){.ema-alert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.ema-alert-grid{grid-template-columns:1fr 1fr}.ema-side-box{padding:7px}}
+.alert-legend{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;overflow-x:auto;padding:0 2px;font-size:16px;color:var(--muted);min-width:0;flex:1}
+.alert-legend-item{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto}
+.alert-legend-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:0 0 7px}
+.legend-state{background:#7ee7b8}.legend-reversal{background:#83bdff}.legend-retest{background:#ffc078}.legend-near{background:#d1a5ff}
+.alert-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.alert-filter{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#0e1729;font-size:12px}
+.alert-filter input{margin:0}
+.alert-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:nowrap;margin:0 0 12px;min-width:0}
+.alert-filters{display:flex;gap:8px;flex-wrap:nowrap;align-items:center;margin:0;flex:0 0 auto}
+.alert-filter{font-size:16px}
+.alert-legend{font-size:16px}
+@media(max-width:900px){.alert-toolbar{overflow-x:auto}.alert-filters{flex:0 0 auto}.alert-legend{flex:0 0 auto}}
+.alert-entry{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px;align-items:center;column-gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a}
+.alert-entry:first-child{border-top:0}
+.alert-entry .symbol{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.alert-entry .symbol-st-bull{color:var(--green)!important}
+.alert-entry .symbol-st-bear{color:var(--red)!important}
+.alert-entry .symbol-st-neutral{color:var(--text)!important}
+.alert-dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.alert-dot.kind-state{background:#7ee7b8}.alert-dot.kind-reversal{background:#83bdff}.alert-dot.kind-retest{background:#ffc078}.alert-dot.kind-near{background:#d1a5ff}
+.alert-details{justify-self:center;text-align:center;min-width:92px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rsi-alert-value{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums}.rsi-deep-green{color:#006400}.rsi-light-green{color:#90EE90}.rsi-orange{color:#FFA500}.rsi-brown{color:#8B4513}.rsi-red{color:#FF0000}
+.alert-change{justify-self:end;text-align:right;min-width:78px;font-size:8px;font-weight:750;font-variant-numeric:tabular-nums}
+.change-positive{color:var(--green)}.change-negative{color:var(--red)}.change-neutral{color:var(--muted)}
+
+.rsi-panel h2{font-size:15px;margin:0 0 8px}
+.rsi-panel .intro{color:var(--muted);font-size:12px;margin:0 0 10px}
+.rsi-control-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;align-items:start}
+.rsi-dropdown{border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#0e1729;overflow:hidden;min-width:0}
+.rsi-dropdown summary{font-size:13px}
+@media(max-width:900px){.rsi-control-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.rsi-dropdown summary{cursor:pointer;padding:11px 13px;font-weight:750;list-style:none}
+.rsi-dropdown summary::-webkit-details-marker{display:none}
+.rsi-dropdown summary:after{content:"+";float:right;color:var(--muted);font-size:18px}
+.rsi-dropdown[open] summary:after{content:"−"}
+.rsi-settings{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 10px 10px}
+.rsi-side{border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.rsi-side h3{font-size:12px;margin:0 0 8px}
+.rsi-side.bull h3{color:var(--green)}.rsi-side.bear h3{color:var(--red)}
+.rsi-enable{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;color:var(--text)}
+.rsi-enable input{width:auto}
+.rsi-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.rsi-fields label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
+.monitor-panel{margin:14px 0}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.perf-metric{background:#0e1729;border:1px solid var(--line);border-radius:8px;padding:9px;min-width:0}.perf-metric span{display:block;color:var(--muted);font-size:11px}.perf-metric strong{display:block;font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.perf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.perf-table th,.perf-table td{text-align:left;padding:6px;border-top:1px solid var(--line)}.perf-table th{color:var(--muted)}@media(max-width:650px){.perf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
+.verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
+@media(max-width:650px){.grid{grid-template-columns:1fr;grid-template-areas:"tf1" "tf15" "tf3" "tf5"}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
+/* Consistent 16px typography throughout the scanner. */
+body,body *{font-size:16px!important}
+/* Identical 24H change typography for bullish and bearish alert rows. */
+body .alert-entry > .alert-change,
+body .alert-entry > .alert-change.change-positive,
+body .alert-entry > .alert-change.change-negative,
+body .alert-entry > .alert-change.change-neutral{
+  font-family:inherit!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  font-variant-numeric:tabular-nums!important;
+}
+</style>
+</head>
+<body>
+<header><h1>SHORT HUNTER</h1></header>
+<main>
+<section class="panel controls">
+ <div class="row">
+  <button class="primary" id="startBtn">Start scanning</button>
+  <button id="modeBtn" class="mode-closed" aria-label="Candle mode: closed">CLOSED MODE</button>
+  <input id="operationMode" type="hidden" value="closed">
+  <button class="stop" id="stopBtn" disabled>Stop</button>
+  <button id="scanBtn">Scan once</button>
+  <button id="clearBtn">Clear lists</button>
+  <button id="saveSettingsBtn">Save settings</button>
+  <span class="status" id="status">Idle · Waiting to start</span>
+ </div>
+ <div class="row" style="margin-top:10px">
+  <label class="status" for="universeMode">Universe</label>
+  <select id="universeMode" style="width:auto;min-width:170px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="percent" selected>24H change threshold</option><option value="count">Top X / Bottom X</option></select>
+  <span id="thresholdControl" class="row" style="gap:7px"><label class="status" for="universeSize">24H change threshold (%)</label>
+  <input id="universeSize" type="number" min="1" step="1" value="10" style="width:90px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"></span>
+  <span id="countControls" class="row" style="gap:7px;display:none"><label class="status" for="topCount">Top gainers</label>
+  <input id="topCount" type="number" min="0" step="1" value="10" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" for="bottomCount">Bottom losers</label>
+  <input id="bottomCount" type="number" min="0" step="1" value="10" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px"></span>
+  <label class="status" for="minVolume">Min 24H quote volume (USDT)</label>
+  <input id="minVolume" type="number" min="0" step="100000" value="2000000" style="width:140px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px">
+  <label class="status" for="refreshInterval">Scan refresh</label>
+  <select id="refreshInterval" style="width:auto;min-width:110px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px"><option value="10000">10 seconds</option><option value="30000">30 seconds</option><option value="60000" selected>60 seconds</option><option value="0">Continuous</option></select>
+  <label class="status" for="workerCount">Concurrent workers (1–20)</label>
+  <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend direction confirmation</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mMacd" type="checkbox" style="width:auto"> 15m MACD histogram direction confirmation (above zero bullish / below zero bearish)</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBothSides" type="checkbox" style="width:auto"> Positive 24H coins: allow on both bullish and bearish sides</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="negative24hBothSides" type="checkbox" style="width:auto"> Negative 24H coins: allow on both bullish and bearish sides</label>
+ </div>
+ <div class="note" id="universeStatus">Universe: USDT-margined perpetuals · ≥ 2,000,000 USDT 24H quote volume · gainers ≥ +10% and losers ≤ −10%.</div>
+ </div>
+ <div class="note">Current Supertrend state scanner · Binance USDⓈ-M USDT-margined perpetual contracts · ATR 10, multiplier 3 · completed candles only · refresh interval selectable · 8 concurrent workers by default</div>
+</section>
+<section class="panel ema-panel" id="emaAlertPanel">
+ <h2 style="font-size:16px;margin:0 0 6px">EMA 7 / EMA 25 EARLY ALERTS</h2>
+ <p class="intro" style="color:var(--muted);font-size:13px;margin:0 0 8px">EMA 7/25 crossover starts an EMA Watch. MACD histogram confirms when it is on the matching side of zero and strengthening. Alerts do not affect scanner qualification.</p>
+ <div class="ema-controls">
+  <label class="ema-toggle"><input type="checkbox" id="emaEnabled_1m" checked> 1m</label>
+  <label class="ema-toggle"><input type="checkbox" id="emaEnabled_3m" checked> 3m</label>
+  <label class="ema-toggle"><input type="checkbox" id="emaEnabled_5m" checked> 5m</label>
+  <label class="ema-toggle"><input type="checkbox" id="emaEnabled_1h" checked> 1h</label>
+ </div>
+ <h3 style="font-size:14px;color:var(--green);margin:0 0 7px">BULLISH ALERTS</h3>
+ <div class="ema-alert-grid" id="emaBullGrid">
+  <div class="ema-side-box bull"><h3>1m</h3><div id="ema-1m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>3m</h3><div id="ema-3m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>5m</h3><div id="ema-5m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>1h</h3><div id="ema-1h-bull"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;color:var(--red);margin:14px 0 7px">BEARISH ALERTS</h3>
+ <div class="ema-alert-grid" id="emaBearGrid">
+  <div class="ema-side-box bear"><h3>1m</h3><div id="ema-1m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>3m</h3><div id="ema-3m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>5m</h3><div id="ema-5m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>1h</h3><div id="ema-1h-bear"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;margin:14px 0 7px;color:var(--accent)">EMA 7 / 25 TOUCH ALERTS</h3>
+ <p class="intro" style="color:var(--muted);font-size:13px;margin:0 0 8px">Alerts when EMA 7 approaches EMA 25 within the selected distance, before or at a possible crossover. A touch is not a confirmed crossover.</p>
+ <div class="ema-controls"><label class="ema-toggle">Near-touch distance (%) <input id="emaTouchDistance" type="number" min="0.01" max="1" step="0.01" value="0.10" style="width:76px"></label></div>
+ <h3 style="font-size:14px;color:var(--green);margin:0 0 7px">BULLISH APPROACH · EMA 7 FROM BELOW</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box bull"><h3>1m</h3><div id="emaTouch-1m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>3m</h3><div id="emaTouch-3m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>5m</h3><div id="emaTouch-5m-bull"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bull"><h3>1h</h3><div id="emaTouch-1h-bull"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;color:var(--red);margin:14px 0 7px">BEARISH APPROACH · EMA 7 FROM ABOVE</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box bear"><h3>1m</h3><div id="emaTouch-1m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>3m</h3><div id="emaTouch-3m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>5m</h3><div id="emaTouch-5m-bear"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box bear"><h3>1h</h3><div id="emaTouch-1h-bear"><div class="empty">No alerts yet</div></div></div>
+ </div>
+</section>
+<section class="panel ema-panel" id="rsiMacdAlertPanel">
+ <h2 style="font-size:16px;margin:0 0 6px">RSI ABOVE 70 + MACD ALERTS</h2>
+ <p class="intro" style="color:var(--muted);font-size:13px;margin:0 0 8px">RSI(14) must be above 70. Shrinking MACD requires a positive histogram contracting for at least 2 consecutive candles. Negative MACD triggers when the histogram is below zero. Alert-only; no effect on qualification.</p>
+ <div class="ema-controls">
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_1m" checked> 1m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_3m" checked> 3m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_5m" checked> 5m</label>
+  <label class="ema-toggle"><input type="checkbox" id="rsiMacdEnabled_1h" checked> 1h</label>
+ </div>
+ <h3 style="font-size:14px;color:#FF8C42;margin:0 0 7px">RSI ABOVE 70 · SHRINKING POSITIVE MACD</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box"><h3>1m</h3><div id="rsiMacd-1m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>3m</h3><div id="rsiMacd-3m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>5m</h3><div id="rsiMacd-5m-shrink"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>1h</h3><div id="rsiMacd-1h-shrink"><div class="empty">No alerts yet</div></div></div>
+ </div>
+ <h3 style="font-size:14px;color:var(--red);margin:14px 0 7px">RSI ABOVE 70 · NEGATIVE MACD</h3>
+ <div class="ema-alert-grid">
+  <div class="ema-side-box"><h3>1m</h3><div id="rsiMacd-1m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>3m</h3><div id="rsiMacd-3m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>5m</h3><div id="rsiMacd-5m-negative"><div class="empty">No alerts yet</div></div></div>
+  <div class="ema-side-box"><h3>1h</h3><div id="rsiMacd-1h-negative"><div class="empty">No alerts yet</div></div></div>
+ </div>
+</section>
+<section class="panel rsi-panel">
+ <h2>RSI CONTROL</h2>
+ <p class="intro">RSI period is fixed at 14 for every timeframe. Set a minimum and maximum RSI range independently for bullish and bearish confirmations. Enabled conditions must pass; disabled conditions do not affect alerts. RSI uses completed candles.</p>
+ <div class="rsi-control-row">
+ <details class="rsi-dropdown">
+  <summary>1m CONTROL</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_1m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullMin_1m">Minimum RSI</label><input id="rsiBullMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_1m">Maximum RSI</label><input id="rsiBullMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_1m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearMin_1m">Minimum RSI</label><input id="rsiBearMin_1m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_1m">Maximum RSI</label><input id="rsiBearMax_1m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>3m CONTROL</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_3m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullMin_3m">Minimum RSI</label><input id="rsiBullMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_3m">Maximum RSI</label><input id="rsiBullMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_3m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearMin_3m">Minimum RSI</label><input id="rsiBearMin_3m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_3m">Maximum RSI</label><input id="rsiBearMax_3m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>5m CONTROL</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_5m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullMin_5m">Minimum RSI</label><input id="rsiBullMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_5m">Maximum RSI</label><input id="rsiBullMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_5m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearMin_5m">Minimum RSI</label><input id="rsiBearMin_5m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_5m">Maximum RSI</label><input id="rsiBearMax_5m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+ <details class="rsi-dropdown">
+  <summary>15m CONTROL</summary>
+  <div class="rsi-settings">
+   <div class="rsi-side bull">
+    <h3>BULLISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBullEnabled_15m"> Enable bullish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBullMin_15m">Minimum RSI</label><input id="rsiBullMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBullMax_15m">Maximum RSI</label><input id="rsiBullMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+   <div class="rsi-side bear">
+    <h3>BEARISH RSI</h3>
+    <label class="rsi-enable"><input type="checkbox" id="rsiBearEnabled_15m"> Enable bearish RSI confirmation</label>
+    <div class="rsi-fields">
+     <div><label for="rsiBearMin_15m">Minimum RSI</label><input id="rsiBearMin_15m" type="number" min="0" max="100" step="0.1" placeholder="Minimum"></div>
+     <div><label for="rsiBearMax_15m">Maximum RSI</label><input id="rsiBearMax_15m" type="number" min="0" max="100" step="0.1" placeholder="Maximum"></div>
+    </div>
+   </div>
+  </div>
+ </details>
+
+ </div>
+</section>
+<details class="panel monitor-panel" id="performancePanel" open>
+ <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">PERFORMANCE MONITOR</summary>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Lightweight scan diagnostics. Measurements cover this browser session; they do not change scanner filters or alert decisions.</p>
+ <div class="perf-grid">
+  <div class="perf-metric"><span>Last scan duration</span><strong id="perfDuration">—</strong></div>
+  <div class="perf-metric"><span>Universe loading</span><strong id="perfUniverse">—</strong></div>
+  <div class="perf-metric"><span>Selected / checked jobs</span><strong id="perfCoverage">—</strong></div>
+  <div class="perf-metric"><span>Average per coin</span><strong id="perfPerCoin">—</strong></div>
+  <div class="perf-metric"><span>Fastest / slowest coin</span><strong id="perfExtremes">—</strong></div>
+  <div class="perf-metric"><span>REST requests</span><strong id="perfRequests">—</strong></div>
+  <div class="perf-metric"><span>Candle cache hits / misses</span><strong id="perfCache">—</strong></div>
+  <div class="perf-metric"><span>Peak active workers</span><strong id="perfWorkers">—</strong></div>
+ </div>
+ <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div><div class="note" id="perfMissing" style="margin-top:6px">Unstarted job details will appear here.</div>
+ <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Started</th><th>Finished</th><th>Failed</th><th>Not started</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="9">No completed scans yet.</td></tr></tbody></table>
+</details>
+<section class="panel monitor-panel">
+ <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
+ <div class="monitor-controls">
+  <label for="rsiMonitorTf">Timeframe</label>
+  <select id="rsiMonitorTf"><option value="3m" selected>3m</option><option value="5m">5m</option></select>
+  <label for="rsiMonitorMin">Minimum RSI</label>
+  <input id="rsiMonitorMin" type="number" min="0" max="100" step="0.1" value="0">
+  <label for="rsiMonitorMax">Maximum RSI</label>
+  <input id="rsiMonitorMax" type="number" min="0" max="100" step="0.1" value="100">
+  <span class="status" id="rsiMonitorCount">Waiting for scan</span>
+ </div>
+ <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
+</section>
+<section class="panel monitor-panel">
+ <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND ALERT SETTINGS</h2>
+ <div class="monitor-controls">
+  <label for="retestTolerance">Touch tolerance (%)</label><input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
+  <label for="retestRearm">Rearm distance (%)</label><input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
+  <label for="nearLineTolerance">Near-line tolerance (%)</label><input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
+ </div>
+</section>
+<details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
+<div id="alertFilterBar"></div>
+<section class="grid" id="dashboard"></section>
+</main>
+<script>
+(()=> {
+const BASE='https://fapi.binance.com';
+const TFS=['1m','3m','5m','15m'];
+const EMA_TFS=['1m','3m','5m','1h'];
+const EMA_ALERTS=new Map();
+const emaLastProcessed=new Map();
+const emaWatchState=new Map();
+const EMA_TOUCH_ALERTS=new Map();
+const emaTouchArmed=new Map();
+const RSI_MACD_TFS=['1m','3m','5m','1h'];
+const RSI_MACD_ALERTS=new Map();
+const rsiMacdLastProcessed=new Map();
+const $=id=>document.getElementById(id);
+let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0,operationMode='closed';
+const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
+const alertFeed=new Map();
+const supertrend15mDirections=new Map();
+const rsiMonitorStates=new Map();
+const retestArmed=new Map();
+const nearLineArmed=new Map();
+const retestAlerts={bull:[],bear:[]};
+const nearLineAlerts={bull:[],bear:[]};
+const lastProcessed=new Map();
+const seen=new Set();
+let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
+let recentErrors=[];
+let marketChanges=new Map();
+const candleCache=new Map();
+const performance={restRequests:0,cacheHits:0,cacheMisses:0,activeWorkers:0,peakWorkers:0,history:[],last:null};
+const status=s=>{$('status').textContent=s};
+function renderVerification(){
+ const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
+ const errorRows=recentErrors.length?recentErrors.slice(-8).reverse().map(e=>'<div class="note"><b>'+e.tf+' · '+e.symbol+'</b>: '+e.message+'</div>').join(''):'<div class="note">No request errors in the latest scan.</div>';
+ $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
+}
+function emaAlertKey(tf,side){return tf+'|'+side;}
+function renderEmaAlerts(){
+ for(const tf of EMA_TFS)for(const side of ['bull','bear']){
+  const el=$('ema-'+tf+'-'+side);if(!el)continue;
+  const list=EMA_ALERTS.get(emaAlertKey(tf,side))||[];
+  el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">'+(a.status==='confirmed'?'CONFIRMED':'EMA WATCH')+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+ }
+}
+function renderEmaTouchAlerts(){
+ for(const tf of EMA_TFS)for(const side of ['bull','bear']){
+  const el=$('emaTouch-'+tf+'-'+side);if(!el)continue;
+  const list=EMA_TOUCH_ALERTS.get(tf+'|'+side)||[];
+  el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">TOUCH · '+a.distance.toFixed(3)+'%<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+ }
+}
+function addEmaTouchAlert(tf,side,symbol,distance,time){
+ const key=tf+'|'+side,list=EMA_TOUCH_ALERTS.get(key)||[];
+ const old=list.findIndex(a=>a.symbol===symbol);
+ if(old>=0)list.splice(old,1);
+ list.unshift({symbol,distance,time});
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>10)list.length=10;
+ EMA_TOUCH_ALERTS.set(key,list);
+ renderEmaTouchAlerts();
+}
+function setEmaAlert(tf,side,symbol,status,time){
+ const key=emaAlertKey(tf,side),list=EMA_ALERTS.get(key)||[];
+ const old=list.findIndex(a=>a.symbol===symbol);
+ if(old>=0)list.splice(old,1);
+ list.unshift({tf,side,symbol,status,time});
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>10)list.length=10;
+ EMA_ALERTS.set(key,list);
+ renderEmaAlerts();
+}
+function emaSeries(values,period){
+ const out=Array(values.length).fill(null);
+ if(values.length<period)return out;
+ const alpha=2/(period+1);
+ let ema=values[0];
+ out[0]=ema;
+ for(let i=1;i<values.length;i++){ema=values[i]*alpha+ema*(1-alpha);out[i]=ema;}
+ return out;
+}
+function macdHistogramSeries(values){
+ const out=Array(values.length).fill(null);
+ if(values.length<35)return out;
+ const fast=emaSeries(values,12),slow=emaSeries(values,26);
+ const dif=values.map((_,i)=>fast[i]===null||slow[i]===null?null:fast[i]-slow[i]);
+ const valid=dif.filter(Number.isFinite);
+ const signalValues=emaSeries(valid,9);
+ let j=0;
+ for(let i=0;i<values.length;i++){
+  if(dif[i]===null)continue;
+  out[i]=dif[i]-signalValues[j++];
+ }
+ return out;
+}
+function processEmaCandles(symbol,tf,candles){
+ if(!EMA_TFS.includes(tf)||!candles||candles.length<36)return;
+ const key=symbol+'|'+tf,latest=candles.length-1,stored=emaLastProcessed.get(key);
+ if(!$('emaEnabled_'+tf).checked){emaLastProcessed.set(key,candles[latest].closeTime);return;}
+ const closes=candles.map(c=>c.c),e7=emaSeries(closes,7),e25=emaSeries(closes,25),hist=macdHistogramSeries(closes);
+ if(stored===undefined){emaLastProcessed.set(key,candles[latest].closeTime);return;}
+ for(let i=1;i<=latest;i++){
+  if(candles[i].closeTime<=stored)continue;
+  const priorSide=e7[i-1]>e25[i-1]?'bull':e7[i-1]<e25[i-1]?'bear':null;
+  const side=e7[i]>e25[i]?'bull':e7[i]<e25[i]?'bear':null;
+  const crossed=side&&priorSide&&side!==priorSide;
+  const emaGap=Math.abs(e7[i]-e25[i])/e25[i]*100;
+  const priorGap=Math.abs(e7[i-1]-e25[i-1])/e25[i-1]*100;
+  const touchDistance=Math.max(0.01,Math.min(1,Number($('emaTouchDistance').value)||0.10));
+  const touchSide=priorSide==='bear'?'bull':priorSide==='bull'?'bear':side==='bull'?'bull':side==='bear'?'bear':null;
+  const touchKey=key+'|'+(touchSide||'none');
+  let touchArmed=emaTouchArmed.has(touchKey)?emaTouchArmed.get(touchKey):true;
+  if(emaGap>touchDistance*2){touchArmed=true;emaTouchArmed.set(touchKey,true);}
+  if(touchSide&&touchArmed&&emaGap<=touchDistance&&emaGap<priorGap){
+   addEmaTouchAlert(tf,touchSide,symbol,emaGap,candles[i].closeTime);
+   emaTouchArmed.set(touchKey,false);
+  }
+  const watchKey=key+'|'+side;
+  const macdAligned=side==='bull'?hist[i]>0&&hist[i]>hist[i-1]:side==='bear'?hist[i]<0&&hist[i]<hist[i-1]:false;
+  if(crossed){
+   emaWatchState.delete(key+'|'+(side==='bull'?'bear':'bull'));
+   emaWatchState.set(watchKey,{symbol,tf,side,status:macdAligned?'confirmed':'watch',time:candles[i].closeTime});
+   setEmaAlert(tf,side,symbol,macdAligned?'confirmed':'watch',candles[i].closeTime);
+  }else if(side){
+   const watch=emaWatchState.get(watchKey);
+   if(watch&&watch.status==='watch'&&macdAligned){
+    watch.status='confirmed';watch.time=candles[i].closeTime;
+    setEmaAlert(tf,side,symbol,'confirmed',candles[i].closeTime);
+   }
+  }
+ }
+ emaLastProcessed.set(key,candles[latest].closeTime);
+}
+function rsiMacdKey(tf,type){return tf+'|'+type;}
+function renderRsiMacdAlerts(){
+ for(const tf of RSI_MACD_TFS)for(const type of ['shrink','negative']){
+  const el=$('rsiMacd-'+tf+'-'+type);if(!el)continue;
+  const list=RSI_MACD_ALERTS.get(rsiMacdKey(tf,type))||[];
+  el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">RSI '+a.rsi.toFixed(1)+' · '+a.hist.toFixed(6)+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
+ }
+}
+function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
+ const key=rsiMacdKey(tf,type),list=RSI_MACD_ALERTS.get(key)||[];
+ const old=list.findIndex(a=>a.symbol===symbol);
+ if(old>=0)list.splice(old,1);
+ list.unshift({symbol,rsi,hist,time});
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>10)list.length=10;
+ RSI_MACD_ALERTS.set(key,list);
+ renderRsiMacdAlerts();
+}
+function processRsiMacdCandles(symbol,tf,candles){
+ if(!RSI_MACD_TFS.includes(tf)||!candles||candles.length<36)return;
+ const key=symbol+'|'+tf,latest=candles.length-1,stored=rsiMacdLastProcessed.get(key);
+ if(!$('rsiMacdEnabled_'+tf).checked){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
+ const rsi=calculateRsiSeries(candles,14),hist=macdHistogramSeries(candles);
+ if(stored===undefined){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
+ for(let i=2;i<=latest;i++){
+  if(candles[i].closeTime<=stored||!Number.isFinite(rsi[i])||rsi[i]<=70||!Number.isFinite(hist[i]))continue;
+  if(hist[i]<0){
+   addRsiMacdAlert(tf,'negative',symbol,rsi[i],hist[i],candles[i].closeTime);
+  }else if(hist[i]>0&&Number.isFinite(hist[i-1])&&Number.isFinite(hist[i-2])&&hist[i]<hist[i-1]&&hist[i-1]<hist[i-2]){
+   addRsiMacdAlert(tf,'shrink',symbol,rsi[i],hist[i],candles[i].closeTime);
+  }
+ }
+ rsiMacdLastProcessed.set(key,candles[latest].closeTime);
+}
+function render(){
+ const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="reversal" checked> Reversal</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-reversal"></i>Reversal</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
+ $('alertFilterBar').innerHTML=filterHtml;
+ $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
+ draw();
+ renderEmaAlerts();
+ renderEmaTouchAlerts();
+ renderRsiMacdAlerts();
+}
+function addAlert(tf,side,type,data){
+ const key=tf+'|'+side;
+ if(!alertFeed.has(key))alertFeed.set(key,[]);
+ const list=alertFeed.get(key);
+ const id=type+'|'+data.symbol+'|'+data.time;
+ // Keep exactly one row for each coin and alert type in this timeframe/direction.
+ // A fresh signal replaces the older row; repeated scans of the same candle only refresh it.
+ const existing=list.findIndex(a=>a.type===type&&a.symbol===data.symbol);
+ const alert={id,tf,side,type,...data,change24h:marketChanges.get(data.symbol)};
+ if(existing>=0)list.splice(existing,1);
+ list.unshift(alert);
+ list.sort((a,b)=>b.time-a.time);
+ if(list.length>100)list.length=100;
+}
+function displaySidePass(alert,side){
+  const change=alert.change24h;
+  if(!Number.isFinite(change)||change===0)return true;
+  if(side==='bull'&&change<0)return $('negative24hBothSides').checked;
+  if(side==='bear'&&change>0)return $('positive24hBothSides').checked;
+  return true;
+ }
+ function draw(){
+ const enabled=new Set([...document.querySelectorAll('.alertTypeFilter:checked')].map(el=>el.value));
+ for(const tf of TFS)for(const side of ['bull','bear']){
+  const el=$(tf+'-'+side);if(!el)continue;
+  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)&&displaySidePass(a,side)).slice(0,10);
+  el.innerHTML=list.length?list.map(a=>{
+   const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
+   const rsiColor=Number.isFinite(a.rsi)?(a.rsi<=33?'rsi-deep-green':a.rsi<50?'rsi-light-green':a.rsi<=60?'rsi-orange':a.rsi<=75?'rsi-brown':'rsi-red'):'';
+   const rsi=Number.isFinite(a.rsi)?'<span class="rsi-alert-value '+rsiColor+'">'+a.rsi.toFixed(1)+'</span>':'<span class="rsi-alert-value">—</span>';
+   const change=Number.isFinite(a.change24h)?(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'—';
+   const changeClass=Number.isFinite(a.change24h)?(a.change24h>0?'change-positive':a.change24h<0?'change-negative':'change-neutral'):'change-neutral';
+   const st15Direction=supertrend15mDirections.get(a.symbol);
+   const symbolStClass=st15Direction===1?'symbol-st-bull':st15Direction===-1?'symbol-st-bear':'symbol-st-neutral';
+   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol '+symbolStClass+'">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span></div>';
+  }).join(''):'<div class="empty">No alerts match this filter</div>';
+ }
+}
+function drawRSIMonitor(){
+ const tf=$('rsiMonitorTf').value;
+ const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
+ const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
+ $('rsiMonitorCount').textContent=valid?matches.length+' coins in range · '+all.length+' RSI values received':'Enter a valid RSI range (0–100)';
+ $('rsiMonitorResults').innerHTML=matches.length?matches.map(x=>'<div class="monitor-coin"><span class="symbol">'+x.symbol+'</span><span class="monitor-value">'+x.rsi.toFixed(1)+'</span></div>').join(''):'<div class="empty">'+(valid?'No coins currently match this RSI range.':'Check the minimum and maximum values.')+'</div>';
+}
+async function getJson(url){
+ performance.restRequests++;
+ const response=await fetch(url,{cache:'no-store'});
+ if(!response.ok){
+  const error=new Error('Binance HTTP '+response.status);
+  error.status=response.status;
+  error.retryAfter=Math.max(1,Number(response.headers.get('Retry-After'))||(response.status===418?120:60));
+  if(response.status===418||response.status===429){rateLimited=true;rateLimitUntil=Math.max(rateLimitUntil,Date.now()+error.retryAfter*1000);}
+  throw error;
+ }
+ return response.json();
+}
+async function getUniverse(){
+ const [tickers,info]=await Promise.all([
+  getJson(BASE+'/fapi/v1/ticker/24hr'),
+  exchangeSymbols?Promise.resolve(null):getJson(BASE+'/fapi/v1/exchangeInfo')
+ ]);
+ if(!exchangeSymbols){
+  // Match the 3m–5m RSI Monitor: active USDT-quoted, USDT-margined contracts only.
+  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
+ }
+ const minVolume=Math.max(0,Number($('minVolume').value)||0);
+ const eligible=tickers.filter(t=>exchangeSymbols.has(t.symbol)&&(Number(t.quoteVolume)||0)>=minVolume)
+  .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
+ const ranked=[...eligible].sort((a,b)=>b.change-a.change);
+ const size=Math.max(1,Number($('universeSize').value)||10);
+ const mode=$('universeMode').value;
+ const readCount=(id)=>{const raw=$(id).value.trim();if(raw==='')return 0;const n=Number(raw);return Number.isFinite(n)?Math.max(0,Math.floor(n)):0};
+ const topCount=Math.min(readCount('topCount'),eligible.length);
+ const bottomCount=Math.min(readCount('bottomCount'),eligible.length);
+ const gainers=mode==='percent'?ranked.filter(x=>x.change>=size):ranked.slice(0,topCount);
+ const losers=mode==='percent'?ranked.filter(x=>x.change<=-size):ranked.slice(Math.max(0,ranked.length-bottomCount));
+ const selected=new Map();
+ gainers.forEach(x=>selected.set(x.symbol,x));
+ losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
+ const universe=[...selected.values()].sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,100).sort((a,b)=>a.change-b.change);
+ marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
+ $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
+ return universe.map(x=>x.symbol);
+}
+function calculateRsiSeries(candles,period){
+ const values=Array(candles.length).fill(null);
+ if(!Number.isInteger(period)||period<2||candles.length<=period)return values;
+ let gains=0,losses=0;
+ for(let i=1;i<=period;i++){
+  const change=candles[i].c-candles[i-1].c;
+  if(change>0)gains+=change;else losses-=change;
+ }
+ let avgGain=gains/period,avgLoss=losses/period;
+ values[period]=avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
+ for(let i=period+1;i<candles.length;i++){
+  const change=candles[i].c-candles[i-1].c;
+  const gain=Math.max(0,change),loss=Math.max(0,-change);
+  avgGain=((avgGain*(period-1))+gain)/period;
+  avgLoss=((avgLoss*(period-1))+loss)/period;
+  values[i]=avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
+ }
+ return values;
+}
+function readRsiConfig(tf,side){
+ const enabled=$((side==='bull'?'rsiBullEnabled_':'rsiBearEnabled_')+tf).checked;
+ if(!enabled)return {enabled:false,valid:true,period:14};
+ const prefix=side==='bull'?'rsiBull':'rsiBear';
+ const minRaw=$(prefix+'Min_'+tf).value.trim();
+ const maxRaw=$(prefix+'Max_'+tf).value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ return {enabled:true,valid,period:14,min,max};
+}
+function rsiPasses(series,index,config,side){
+ if(!config.enabled)return true;
+ if(!config.valid)return false;
+ const value=series[index];
+ if(value===null||!Number.isFinite(value))return false;
+ return value>=config.min&&value<=config.max;
+}
+function supertrend(candles){
+ const n=candles.length,p=10,m=3;
+ if(n<p+3)return null;
+ const tr=Array(n).fill(0),atr=Array(n).fill(null),upper=Array(n).fill(null),lower=Array(n).fill(null),dir=Array(n).fill(null);
+ for(let i=1;i<n;i++)tr[i]=Math.max(candles[i].h-candles[i].l,Math.abs(candles[i].h-candles[i-1].c),Math.abs(candles[i].l-candles[i-1].c));
+ let seed=0;for(let i=1;i<=p;i++)seed+=tr[i];atr[p]=seed/p;
+ for(let i=p+1;i<n;i++)atr[i]=(atr[i-1]*(p-1)+tr[i])/p;
+ for(let i=p;i<n;i++){
+  const mid=(candles[i].h+candles[i].l)/2,bu=mid+m*atr[i],bl=mid-m*atr[i];
+  upper[i]=(i===p||bu<upper[i-1]||candles[i-1].c>upper[i-1])?bu:upper[i-1];
+  lower[i]=(i===p||bl>lower[i-1]||candles[i-1].c<lower[i-1])?bl:lower[i-1];
+  if(i===p)dir[i]=candles[i].c>=mid?1:-1;
+  else if(dir[i-1]===1)dir[i]=candles[i].c<lower[i-1]?-1:1;
+  else dir[i]=candles[i].c>upper[i-1]?1:-1;
+ }
+ const line=dir.map((d,i)=>d===1?lower[i]:d===-1?upper[i]:null);
+ return {direction:dir,line};
+}
+async function getCachedKlines(symbol,tf){
+ const key=symbol+'|'+tf;
+ const cached=candleCache.get(key);
+ if(!cached){
+  performance.cacheMisses++;
+  const rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+  candleCache.set(key,rows.slice(-120));
+  return candleCache.get(key);
+ }
+ performance.cacheHits++;
+ // Resume from the most recent cached candle; this normally downloads only the newest candle(s).
+ let rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&startTime='+cached[cached.length-1][0]+'&limit=120');
+ if(rows.length>=120){
+  // A long pause or stale cache: rebuild a fresh rolling history rather than risk missing candles.
+  rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+  candleCache.set(key,rows.slice(-120));
+  return candleCache.get(key);
+ }
+ const merged=new Map(cached.map(row=>[Number(row[0]),row]));
+ for(const row of rows)merged.set(Number(row[0]),row);
+ const updated=[...merged.values()].sort((a,b)=>Number(a[0])-Number(b[0])).slice(-120);
+ candleCache.set(key,updated);
+ return updated;
+}
+async function mapLimit(items,limit,fn){
+ let index=0;
+ const workers=Array.from({length:Math.min(limit,items.length)},async()=>{
+  while(index<items.length&&!rateLimited){
+   const current=index++;
+   performance.activeWorkers++;
+   performance.peakWorkers=Math.max(performance.peakWorkers,performance.activeWorkers);
+   try{await fn(items[current],current)}finally{performance.activeWorkers--;}
+  }
+ });
+ await Promise.all(workers);
+}
+function renderPerformance(){
+ const p=performance.last;
+ if(!p)return;
+ $('perfDuration').textContent=p.duration.toFixed(1)+'s';
+ $('perfUniverse').textContent=p.universeSeconds.toFixed(1)+'s';
+ $('perfCoverage').textContent=p.checkedJobs+'/'+p.totalJobs+' jobs · '+p.coins+' coins';
+ $('perfPerCoin').textContent=p.coins?(p.duration/p.coins*1000).toFixed(0)+' ms':'—';
+ $('perfExtremes').textContent=p.fastest&&p.slowest?p.fastest.symbol+' '+p.fastest.ms.toFixed(0)+'ms / '+p.slowest.symbol+' '+p.slowest.ms.toFixed(0)+'ms':'—';
+ $('perfRequests').textContent=String(p.restRequests);
+ $('perfCache').textContent=p.cacheHits+' / '+p.cacheMisses;
+ $('perfWorkers').textContent=String(p.peakWorkers);
+ $('perfStatus').textContent='Started: '+p.startedJobs+'/'+p.totalJobs+' · finished: '+p.finishedJobs+' · failed: '+p.failures+' · not started: '+p.notStarted+' · cache hit rate: '+(p.cacheHits+p.cacheMisses?Math.round(p.cacheHits/(p.cacheHits+p.cacheMisses)*100):0)+'%';
+ $('perfMissing').textContent=p.missingJobs.length?'Not-started jobs: '+p.missingJobs.join(', '):'All selected symbol/timeframe jobs were started.';
+ $('perfHistory').innerHTML=performance.history.slice().reverse().map((x,i)=>'<tr><td>'+(performance.history.length-i)+'</td><td>'+x.workers+'</td><td>'+x.duration.toFixed(1)+'s</td><td>'+x.coins+'</td><td>'+x.startedJobs+'/'+x.totalJobs+'</td><td>'+x.finishedJobs+'</td><td>'+x.failures+'</td><td>'+x.notStarted+'</td><td>'+x.cacheHits+'</td></tr>').join('')||'<tr><td colspan="7">No completed scans yet.</td></tr>';
+}
+async function scan(){
+ if(busy)return;
+ if(Date.now()<rateLimitUntil){status('Binance cooldown active · waiting '+Math.ceil((rateLimitUntil-Date.now())/1000)+'s before the next request');return}
+ rateLimited=false;
+ busy=true;
+ const started=Date.now();
+ performance.restRequests=0;performance.cacheHits=0;performance.cacheMisses=0;performance.activeWorkers=0;performance.peakWorkers=0;
+ const coinTimes=new Map();
+ let universeMs=0,checkedJobs=0,startedJobs=0,finishedJobs=0;
+ try{
+  status('Loading USDⓈ-M contracts…');
+  const universeStarted=Date.now();
+  const symbols=await getUniverse();
+  universeMs=Date.now()-universeStarted;
+  supertrend15mDirections.clear();
+  for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
+  for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
+  rsiMonitorStates.clear();
+  scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
+  recentErrors=[];
+  let completed=0,newCount=0,failures=0;
+  const startedJobKeys=new Set();
+  const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
+  $('workerCount').value=workerCount;
+  const scanMode=operationMode;
+  const confirm15mBull=$('confirm15mBull').checked;
+  const confirm15mMacd=$('confirm15mMacd').checked;
+  const confirmation15mPromises=new Map();
+  const emaLast=(values,period)=>{
+   if(values.length<period)return null;
+   const alpha=2/(period+1);
+   let ema=values[0];
+   for(let i=1;i<values.length;i++)ema=values[i]*alpha+ema*(1-alpha);
+   return ema;
+  };
+  const macdHistogramLast=(values)=>{
+   if(values.length<35)return null;
+   const fast=[],slow=[];
+   const af=2/13,as=2/27;
+   let ef=values[0],es=values[0];
+   for(let i=0;i<values.length;i++){
+    if(i>0){ef=values[i]*af+ef*(1-af);es=values[i]*as+es*(1-as);}
+    fast.push(ef-es);
+   }
+   const signalAlpha=2/10;
+   let signal=fast[0];
+   for(let i=1;i<fast.length;i++)signal=fast[i]*signalAlpha+signal*(1-signalAlpha);
+   return fast[fast.length-1]-signal;
+  };
+  const passes15mConfirmation=async(symbol,side)=>{
+   // 15m confirmation is intentionally bullish-only; bearish alerts bypass it.
+   if(side!=='bull')return true;
+   if(!confirm15mBull&&!confirm15mMacd)return true;
+   if(!confirmation15mPromises.has(symbol)){
+    confirmation15mPromises.set(symbol,(async()=>{
+     const raw15=await getCachedKlines(symbol,'15m');
+     const rows15=scanMode==='live'?raw15:raw15.slice(0,-1);
+     const candles15=rows15.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+     const direction=confirm15mBull?supertrend(candles15)?.direction?.at(-1):null;
+     const histogram=confirm15mMacd?macdHistogramLast(candles15.map(c=>c.c)):null;
+     return {direction,histogram};
+    })());
+   }
+   const result=await confirmation15mPromises.get(symbol);
+   if(confirm15mBull&&result.direction!==(side==='bull'?1:-1))return false;
+   if(confirm15mMacd&&(!Number.isFinite(result.histogram)||(side==='bull'?result.histogram<=0:result.histogram>=0)))return false;
+   return true;
+  };
+  status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
+  const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
+  const emaHourJobs=symbols.map(symbol=>({symbol,tf:'1h'}));
+  await mapLimit(jobs,workerCount,async({symbol,tf})=>{
+   startedJobs++;
+   startedJobKeys.add(symbol+'|'+tf);
+   const jobStarted=Date.now();
+   try{
+    const raw=await getCachedKlines(symbol,tf);
+    // The selected global mode determines which candle feeds every calculation.
+    const candleRows=scanMode==='live'?raw:raw.slice(0,-1);
+    const candles=candleRows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+    if(EMA_TFS.includes(tf))processEmaCandles(symbol,tf,candles);
+    processRsiMacdCandles(symbol,tf,candles);
+    const st=supertrend(candles);
+    if(!st||candles.length<2)return;
+    const directions=st.direction;
+    const stLines=st.line;
+    const bullRsiConfig=readRsiConfig(tf,'bull');
+    const bearRsiConfig=readRsiConfig(tf,'bear');
+    const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
+    const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
+    const displayRsiSeries=calculateRsiSeries(candles,14);
+    if(tf===$('rsiMonitorTf').value){
+     const monitorSeries=calculateRsiSeries(candles,14);
+     const monitorValue=monitorSeries[monitorSeries.length-1];
+     if(Number.isFinite(monitorValue))rsiMonitorStates.set(symbol,{symbol,tf,rsi:monitorValue});
+    }
+    scanStats[tf].checked++;
+    scanStats[tf].lastClose=candles[candles.length-1].closeTime;
+    const key=symbol+'|'+tf;
+    const storedProcessed=lastProcessed.get(key);
+    const latest=candles.length-1;
+    if(tf==='15m')supertrend15mDirections.set(symbol,directions[latest]);
+    const previousProcessed=storedProcessed===undefined?undefined:(scanMode==='live'&&latest>0?candles[latest-1].closeTime:storedProcessed);
+    const currentDirection=directions[latest];
+    const bullishAlertPass=await passes15mConfirmation(symbol,'bull');
+    const bearishChangePass=await passes15mConfirmation(symbol,'bear');
+    if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
+     const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
+     currentStates[tf].bull.set(symbol,state);
+     addAlert(tf,'bull','state',state);
+    }else if(currentDirection===-1&&bearishChangePass&&rsiPasses(bearRsiSeries||[],latest,bearRsiConfig,'bear')){
+     const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
+     currentStates[tf].bear.set(symbol,state);
+     addAlert(tf,'bear','state',state);
+    }
+    if(previousProcessed===undefined){
+     // First scan establishes the candle baseline while still populating current-state lists.
+     lastProcessed.set(key,candles[latest].closeTime);
+     scanStats[tf].baselines++;
+     return;
+    }
+    for(let i=1;i<=latest;i++){
+     if(candles[i].closeTime<=previousProcessed)continue;
+     scanStats[tf].candles++;
+     const before=directions[i-1],after=directions[i];
+     const side=before===-1&&after===1?'bull':before===1&&after===-1?'bear':null;
+     if(side){
+      const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
+      const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
+      const reversalPass=(side==='bull'?bullishAlertPass:bearishChangePass)&&rsiPasses(rsiSeries||[],i,rsiConfig,side);
+      if(reversalPass){
+       scanStats[tf].reversals++;
+       newCount++;
+       addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i]});
+      }
+     }
+     // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
+     const nearLine=stLines[i],close=candles[i].c;
+     if(Number.isFinite(nearLine)&&nearLine>0&&before===after&&(after===1||after===-1)){
+      const nearTolerance=Math.max(0.01,Math.min(2,Number($('nearLineTolerance').value)||0.2))/100;
+      const nearSide=after===1?'bull':'bear';
+      const nearThresholdPass=nearSide==='bull'?bullishAlertPass:bearishChangePass;
+      const noTouchNear=nearSide==='bull'
+       ? candles[i].l>nearLine&&candles[i].l<=nearLine*(1+nearTolerance)
+       : candles[i].h<nearLine&&candles[i].h>=nearLine*(1-nearTolerance);
+      const nearKey=symbol+'|'+tf+'|'+nearSide;
+      const nearWasArmed=nearLineArmed.has(nearKey)?nearLineArmed.get(nearKey):true;
+      if(!noTouchNear)nearLineArmed.set(nearKey,true);
+      else if(nearThresholdPass&&nearWasArmed){
+       addAlert(tf,nearSide,'near',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i],st:nearLine,extreme:nearSide==='bull'?candles[i].l:candles[i].h,close});
+       nearLineArmed.set(nearKey,false);
+      }
+     }
+     // Independent retest detector: trend must already be established before the touch candle.
+     const line=stLines[i];
+     if(Number.isFinite(line)&&line>0&&before===after&&(after===1||after===-1)){
+      const retestSide=after===1?'bull':'bear';
+      const retestThresholdPass=retestSide==='bull'?bullishAlertPass:bearishChangePass;
+      const rearmKey=symbol+'|'+tf+'|'+retestSide;
+      const tolerance=Math.max(0,Math.min(2,Number($('retestTolerance').value)||0))/100;
+      const rearmDistance=Math.max(0.05,Math.min(5,Number($('retestRearm').value)||0.3))/100;
+      let armed=retestArmed.has(rearmKey)?retestArmed.get(rearmKey):true;
+      if(!armed){
+       const separated=retestSide==='bull'?close>=line*(1+rearmDistance):close<=line*(1-rearmDistance);
+       if(separated){retestArmed.set(rearmKey,true);armed=true;}
+      }
+      if(armed&&retestThresholdPass){
+       const touched=retestSide==='bull'?candles[i].l<=line*(1+tolerance):candles[i].h>=line*(1-tolerance);
+       const reclaimed=retestSide==='bull'?close>line:close<line;
+       if(touched&&reclaimed){
+        const alert={symbol,tf,time:candles[i].closeTime,rsi:displayRsiSeries[i],st:line,extreme:retestSide==='bull'?candles[i].l:candles[i].h,close};
+        addAlert(tf,retestSide,'retest',alert);
+        retestArmed.set(rearmKey,false);
+       }
+      }
+     }
+    }
+    lastProcessed.set(key,candles[latest].closeTime);
+   }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
+   finally{
+    // Count every started job as settled, including jobs that exit early via return.
+    const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
+    const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
+    completed++;
+    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
+   }
+  });
+  // The 1h EMA monitor runs as an independent alert-only pass; it does not enter TFS or qualification.
+  await mapLimit(emaHourJobs,workerCount,async({symbol,tf})=>{
+   try{
+    const raw=await getCachedKlines(symbol,tf);
+    const rows=scanMode==='live'?raw:raw.slice(0,-1);
+    const candles=rows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+    processEmaCandles(symbol,tf,candles);
+    processRsiMacdCandles(symbol,tf,candles);
+   }catch(error){if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
+  });
+  draw();
+  renderEmaAlerts();
+  drawRSIMonitor();
+  renderVerification();
+  const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
+  coinAverages.sort((a,b)=>a.ms-b.ms);
+  const duration=(Date.now()-started)/1000;
+  const missingJobs=jobs.filter(j=>!startedJobKeys.has(j.symbol+'|'+j.tf)).map(j=>j.symbol+' '+j.tf);
+  const notStarted=jobs.length-startedJobs;
+  performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,startedJobs,finishedJobs,notStarted,missingJobs,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
+  performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
+  renderPerformance();
+  if(rateLimited){
+   const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
+   status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
+  }else{
+   status('Scan complete · '+symbols.length+' selected contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s · '+workerCount+' workers');
+  }
+ }catch(error){status('Scanner error · '+error.message)}
+ finally{busy=false}
+}
+async function scanLoop(){
+ if(!running)return;
+ await scan();
+ if(running){
+  const selectedInterval=Math.max(0,Number($('refreshInterval').value)||0);
+  const delay=rateLimited?Math.max(60000,rateLimitUntil-Date.now()):selectedInterval;
+  loopTimer=setTimeout(scanLoop,delay);
+ }
+}
+function start(){
+ if(running)return;
+ if(Date.now()<rateLimitUntil){status('Binance cooldown active · wait '+Math.ceil((rateLimitUntil-Date.now())/1000)+'s before restarting');return}
+ running=true;
+ $('startBtn').disabled=true;$('stopBtn').disabled=false;
+ scanLoop();
+}
+function stop(){
+ running=false;
+ if(loopTimer)clearTimeout(loopTimer);
+ loopTimer=null;
+ $('startBtn').disabled=false;$('stopBtn').disabled=true;
+ status('Stopped');
+}
+const SETTINGS_KEY='shortHunterSettings_v1';
+function getSettingsControls(){
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ for(const tf of TFS){
+  ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
+  ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
+ }
+ return ids;
+}
+function saveSettings(){
+ const settings={};
+ for(const id of getSettingsControls()){
+  const el=$(id);
+  if(!el)continue;
+  settings[id]=el.type==='checkbox'?el.checked:el.value;
+ }
+ try{
+  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
+  status('Settings saved on this device · '+new Date().toLocaleTimeString());
+ }catch(error){
+  status('Could not save settings in this browser · '+error.message);
+ }
+}
+function loadSettings(){
+ try{
+  const raw=localStorage.getItem(SETTINGS_KEY);
+  if(!raw)return;
+  const settings=JSON.parse(raw);
+  if(!settings||typeof settings!=='object')return;
+  for(const id of getSettingsControls()){
+   if(!Object.prototype.hasOwnProperty.call(settings,id))continue;
+   if(id==='operationMode'){operationMode=settings[id]==='live'?'live':'closed';continue;}
+   const el=$(id);
+   if(!el)continue;
+   if(el.type==='checkbox')el.checked=Boolean(settings[id]);
+   else el.value=String(settings[id]);
+  }
+  status('Saved settings restored from this device');
+ }catch(error){
+  status('Saved settings could not be restored · '+error.message);
+ }
+}
+$('rsiMonitorTf').onchange=drawRSIMonitor;
+$('rsiMonitorMin').oninput=drawRSIMonitor;
+$('rsiMonitorMax').oninput=drawRSIMonitor;
+$('retestTolerance').onchange=saveSettings;
+$('retestRearm').onchange=saveSettings;
+$('nearLineTolerance').onchange=saveSettings;
+$('emaTouchDistance').onchange=saveSettings;
+$('confirm15mBull').onchange=saveSettings;
+$('confirm15mMacd').onchange=saveSettings;
+$('positive24hBothSides').onchange=()=>{saveSettings();draw();};
+$('negative24hBothSides').onchange=()=>{saveSettings();draw();};
+$('saveSettingsBtn').onclick=saveSettings;
+for(const tf of EMA_TFS)$('emaEnabled_'+tf).onchange=saveSettings;
+for(const tf of RSI_MACD_TFS)$('rsiMacdEnabled_'+tf).onchange=saveSettings;
+function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
+$('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed';$('operationMode').value=operationMode;lastProcessed.clear();emaLastProcessed.clear();emaWatchState.clear();emaTouchArmed.clear();rsiMacdLastProcessed.clear();retestArmed.clear();$('operationMode').value=operationMode;updateModeButton();saveSettings();status(operationMode.toUpperCase()+' mode selected · all scanner operations will use this candle mode on the next scan');};
+$('startBtn').onclick=start;
+$('stopBtn').onclick=stop;
+$('scanBtn').onclick=scan;
+$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();EMA_TOUCH_ALERTS.clear();emaTouchArmed.clear();RSI_MACD_ALERTS.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderEmaTouchAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
+render();
+renderPerformance();
+renderEmaTouchAlerts();
+renderRsiMacdAlerts();
+loadSettings();
+draw();
+function updateUniverseControls(){
+ const countMode=$('universeMode').value==='count';
+ $('thresholdControl').style.display=countMode?'none':'inline-flex';
+ $('countControls').style.display=countMode?'inline-flex':'none';
+}
+$('universeMode').onchange=updateUniverseControls;
+updateUniverseControls();
+})();
+</script>
+</body>
+</html>
