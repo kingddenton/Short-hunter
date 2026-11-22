@@ -798,6 +798,7 @@ async function scan(){
   universeMs=Date.now()-universeStarted;
   supertrend15mDirections.clear();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
+  qualifyingDiagnostics.clear();
   for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
   rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
@@ -852,6 +853,7 @@ async function scan(){
   };
   status('Checking '+symbols.length+' selected USDT contracts across four timeframes · '+workerCount+' workers · '+scanMode.toUpperCase()+' mode…');
   const jobs=symbols.flatMap(symbol=>TFS.map(tf=>({symbol,tf})));
+  for(const job of jobs)qualifyingDiagnostics.set(job.symbol+'|'+job.tf,{symbol:job.symbol,tf:job.tf,direction:'PENDING',rsi:null,rsiGate:'Pending',confirmGate:'Pending',result:'PENDING',reason:'Awaiting candle data'});
   const emaHourJobs=symbols.map(symbol=>({symbol,tf:'1h'}));
   await mapLimit(jobs,workerCount,async({symbol,tf})=>{
    startedJobs++;
@@ -865,7 +867,7 @@ async function scan(){
     if(EMA_TFS.includes(tf))processEmaCandles(symbol,tf,candles);
     processRsiMacdCandles(symbol,tf,candles);
     const st=supertrend(candles);
-    if(!st||candles.length<2)return;
+    if(!st||candles.length<2){qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:'UNAVAILABLE',rsi:null,rsiGate:'Not checked',confirmGate:'Not checked',result:'DATA ISSUE',reason:'Insufficient candles to calculate Supertrend'});return;}
     const directions=st.direction;
     const stLines=st.line;
     const bullRsiConfig=readRsiConfig(tf,'bull');
