@@ -322,6 +322,13 @@ body .alert-entry > .alert-change.change-neutral{
  <div style="overflow:auto"><table class="perf-table"><thead><tr><th>#</th><th>Symbol</th><th>24H change</th><th>24H quote volume</th><th>WS intervals fresh</th><th>Last WS update</th></tr></thead><tbody id="monitoredCoinRows"><tr><td colspan="6">Coins will appear when the scanner selects its universe.</td></tr></tbody></table></div>
 </details>
 </details>
+<details class="panel monitor-panel" id="qualifyingDiagnosticPanel" open>
+ <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">COIN QUALIFYING DIAGNOSTIC</summary>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Every selected coin is checked on all four Supertrend timeframes. This diagnostic explains its current direction, RSI / 15m confirmation gates and whether it entered a current-state display box. It does not change qualification or alerts.</p>
+ <div class="perf-grid"><div class="perf-metric"><span>Selected coins</span><strong id="qualDiagCoins">0</strong></div><div class="perf-metric"><span>Qualified timeframe rows</span><strong id="qualDiagQualified">0</strong></div><div class="perf-metric"><span>Not qualified</span><strong id="qualDiagRejected">0</strong></div><div class="perf-metric"><span>Data issues</span><strong id="qualDiagErrors">0</strong></div></div>
+ <div class="status" id="qualDiagStatus" style="margin:8px 0">Waiting for first scan.</div>
+ <div style="overflow:auto"><table class="perf-table"><thead><tr><th>Coin</th><th>TF</th><th>ST direction</th><th>RSI(14)</th><th>RSI gate</th><th>15m gate</th><th>Display result / reason</th></tr></thead><tbody id="qualDiagRows"><tr><td colspan="7">Run a scan to inspect selected coins.</td></tr></tbody></table></div>
+</details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
@@ -364,6 +371,7 @@ const rsiMacdLastProcessed=new Map();
 const $=id=>document.getElementById(id);
 let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=false,rateLimitUntil=0,operationMode='closed';
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
+const qualifyingDiagnostics=new Map();
 const alertFeed=new Map();
 const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
@@ -431,6 +439,17 @@ function renderMonitoredCoins(){
  $('monitoredFresh').textContent=String(freshCoins);
  $('monitoredStatus').textContent=running?'Scanner running · '+(coreWsStopped?'WebSocket stream stopped': 'WebSocket stream '+(coreWsOpen?'connected':'connecting'))+' · '+intervals.join(', ')+' candle intervals per coin.':'Scanner stopped · last selected universe retained for inspection.';
  $('monitoredCoinRows').innerHTML=rows||'<tr><td colspan="6">No coins selected by the current universe rules.</td></tr>';
+}
+function renderQualifyingDiagnostics(){
+ const rows=[],counts={qualified:0,rejected:0,errors:0},symbols=monitoredUniverse.map(x=>x.symbol);
+ for(const symbol of symbols)for(const tf of TFS){const d=qualifyingDiagnostics.get(symbol+'|'+tf);if(!d)continue;
+  if(d.result==='QUALIFIED')counts.qualified++;else if(d.result==='DATA ISSUE')counts.errors++;else if(d.result==='NOT QUALIFIED')counts.rejected++;
+  const side=d.direction==='BULLISH'?'bull':d.direction==='BEARISH'?'bear':null,color=side==='bull'?'var(--green)':side==='bear'?'var(--red)':'var(--muted)';
+  rows.push('<tr><td><b>'+symbol+'</b></td><td>'+tf+'</td><td style="color:'+color+'">'+(d.direction||'—')+'</td><td>'+(Number.isFinite(d.rsi)?d.rsi.toFixed(1):'—')+'</td><td>'+(d.rsiGate||'—')+'</td><td>'+(d.confirmGate||'—')+'</td><td><b>'+d.result+'</b>'+(d.reason?' · '+d.reason:'')+'</td></tr>');
+ }
+ $('qualDiagCoins').textContent=String(symbols.length);$('qualDiagQualified').textContent=String(counts.qualified);$('qualDiagRejected').textContent=String(counts.rejected);$('qualDiagErrors').textContent=String(counts.errors);
+ $('qualDiagStatus').textContent=busy?'Scan in progress · '+qualifyingDiagnostics.size+' of '+(symbols.length*TFS.length)+' coin/timeframe checks reported.':'Latest scan · '+counts.qualified+' qualified · '+counts.rejected+' not qualified · '+counts.errors+' data issues.';
+ $('qualDiagRows').innerHTML=rows.join('')||'<tr><td colspan="7">No diagnostic results yet.</td></tr>';
 }
 function renderVerification(){
  const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
@@ -869,6 +888,15 @@ async function scan(){
     const currentDirection=directions[latest];
     const bullishAlertPass=await passes15mConfirmation(symbol,'bull');
     const bearishChangePass=await passes15mConfirmation(symbol,'bear');
+    const activeSide=currentDirection===1?'bull':currentDirection===-1?'bear':null;
+    const activeConfig=activeSide==='bull'?bullRsiConfig:bearRsiConfig;
+    const activeSeries=activeSide==='bull'?(bullRsiSeries||[]):(bearRsiSeries||[]);
+    const activeRsiPass=activeSide?rsiPasses(activeSeries,latest,activeConfig,activeSide):false;
+    const activeConfirmPass=activeSide==='bull'?bullishAlertPass:activeSide==='bear'?bearishChangePass:false;
+    const rsiValue=displayRsiSeries[latest];
+    const rsiGate=activeSide?(activeConfig.enabled?(activeConfig.valid?(activeRsiPass?'PASS':'FAIL · '+(Number.isFinite(activeSeries[latest])?'outside configured range':'RSI unavailable')):'FAIL · invalid min/max settings'):'PASS · disabled'):'Not applicable';
+    const confirmGate=activeSide==='bull'?(bullishAlertPass?'PASS':'FAIL · 15m confirmation'):activeSide==='bear'?'PASS · bearish bypasses 15m confirmation':'Not applicable';
+    qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:activeSide==='bull'?'BULLISH':activeSide==='bear'?'BEARISH':'NO DIRECTION',rsi:rsiValue,rsiGate,confirmGate,result:!activeSide?'NOT QUALIFIED':activeRsiPass&&activeConfirmPass?'QUALIFIED':'NOT QUALIFIED',reason:!activeSide?'No current Supertrend direction':!activeRsiPass?'RSI confirmation did not pass':!activeConfirmPass?'15m confirmation did not pass':''});
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
@@ -931,7 +959,7 @@ async function scan(){
      }
     }
     lastProcessed.set(key,candles[latest].closeTime);
-   }catch(error){failures++;scanStats[tf].errors++;if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
+   }catch(error){failures++;scanStats[tf].errors++;qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:'UNKNOWN',rsi:null,rsiGate:'Not checked',confirmGate:'Not checked',result:'DATA ISSUE',reason:String(error&&error.message||error).slice(0,180)});if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
    finally{
     // Count every started job as settled, including jobs that exit early via return.
     const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
@@ -951,6 +979,7 @@ async function scan(){
    }catch(error){if(!rateLimited)recentErrors.push({symbol,tf,message:String(error&&error.message||error).slice(0,180)})}
   });
   draw();
+  renderQualifyingDiagnostics();
   renderEmaAlerts();
   drawRSIMonitor();
   renderVerification();
