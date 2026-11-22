@@ -313,12 +313,26 @@ body .alert-entry > .alert-change.change-neutral{
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">The exact selected universe used by Short Hunter. WebSocket coverage shows which candle intervals have delivered recent updates; it does not affect coin selection or alert decisions.</p>
  <div class="perf-grid">
   <div class="perf-metric"><span>Selected coins</span><strong id="monitoredCount">0</strong></div>
-  <div class="perf-metric"><span>Eligible contracts</span><strong id="monitoredEligible">—</strong></div>
+  <div class="perf-metric"><span>Full USDT universe</span><strong id="monitoredFullUniverse">—</strong></div>
+  <div class="perf-metric"><span>After min volume</span><strong id="monitoredEligible">—</strong></div>
   <div class="perf-metric"><span>WebSocket groups</span><strong id="monitoredSockets">0 / 0</strong></div>
   <div class="perf-metric"><span>Coins with fresh feed</span><strong id="monitoredFresh">0</strong></div>
  </div>
  <div class="status" id="monitoredStatus" style="margin-top:9px">Waiting for the first universe selection.</div>
  <div style="overflow:auto"><table class="perf-table"><thead><tr><th>#</th><th>Symbol</th><th>24H change</th><th>24H quote volume</th><th>WS intervals fresh</th><th>Last WS update</th></tr></thead><tbody id="monitoredCoinRows"><tr><td colspan="6">Coins will appear when the scanner selects its universe.</td></tr></tbody></table></div>
+</details>
+<details class="panel monitor-panel" id="signalRejectionPanel" open>
+ <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">SIGNAL REJECTION DIAGNOSTICS</summary>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Counts newly detected Supertrend reversals and shows which confirmation gates rejected them. Counts are per symbol, timeframe and newly processed candle.</p>
+ <div class="perf-grid">
+  <div class="perf-metric"><span>Reversal signals detected</span><strong id="rejectDetected">0</strong></div>
+  <div class="perf-metric"><span>Accepted reversals</span><strong id="rejectAccepted">0</strong></div>
+  <div class="perf-metric"><span>Rejected by 15m confirmation</span><strong id="reject15m">0</strong></div>
+  <div class="perf-metric"><span>Rejected by RSI filter</span><strong id="rejectRsi">0</strong></div>
+  <div class="perf-metric"><span>Rejected by both gates</span><strong id="rejectBoth">0</strong></div>
+  <div class="perf-metric"><span>Signals not yet evaluated</span><strong id="rejectPending">0</strong></div>
+ </div>
+ <div class="status" id="rejectStatus" style="margin-top:9px">Waiting for first scan.</div>
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
@@ -380,7 +394,18 @@ const candleWsFresh=new Map();
 const coreWs=new Map();
 let coreWsSymbolsKey='',coreWsStopped=true,coreWsOpen=0;
 const coreWsRetry=new Map();
-let monitoredUniverse=[],eligibleUniverseCount=0,universeRenderTimer=null;
+let monitoredUniverse=[],eligibleUniverseCount=0,exchangeUniverseCount=0,universeRenderTimer=null;
+const signalRejections={bullDetected:0,bearDetected:0,accepted:0,rejected15m:0,rejectedRsi:0,rejectedBoth:0,notEvaluated:0};
+function renderSignalRejections(){
+ const detected=signalRejections.bullDetected+signalRejections.bearDetected;
+ $('rejectDetected').textContent=String(detected);
+ $('rejectAccepted').textContent=String(signalRejections.accepted);
+ $('reject15m').textContent=String(signalRejections.rejected15m);
+ $('rejectRsi').textContent=String(signalRejections.rejectedRsi);
+ $('rejectBoth').textContent=String(signalRejections.rejectedBoth);
+ $('rejectPending').textContent=String(signalRejections.notEvaluated);
+ $('rejectStatus').textContent='Bullish flips: '+signalRejections.bullDetected+' · Bearish flips: '+signalRejections.bearDetected+' · Rejections by 15m / RSI include signals rejected by both gates.';
+}
 function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
 function stopCoreMarketStream(){coreWsStopped=true;closeCoreSockets();coreWsRetry.clear();}
 function cacheKlineEvent(k){
@@ -423,6 +448,7 @@ function renderMonitoredCoins(){
   return '<tr><td>'+(index+1)+'</td><td><b>'+coin.symbol+'</b></td><td style="color:'+(coin.change>=0?'var(--green)':'var(--red)')+'">'+change+'</td><td>'+coin.volume.toLocaleString(undefined,{maximumFractionDigits:0})+'</td><td>'+fresh.length+'/'+intervals.length+' · '+(fresh.length?fresh.join(', '):'No recent updates')+'</td><td>'+last+'</td></tr>';
  }).join('');
  $('monitoredCount').textContent=String(monitoredUniverse.length);
+ $('monitoredFullUniverse').textContent=String(exchangeUniverseCount);
  $('monitoredEligible').textContent=String(eligibleUniverseCount);
  $('monitoredSockets').textContent=coreWsOpen+' / '+coreWs.size;
  $('monitoredFresh').textContent=String(freshCoins);
@@ -643,6 +669,7 @@ async function getUniverse(){
   // Match the 3m–5m RSI Monitor: active USDT-quoted, USDT-margined contracts only.
   exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
  }
+ exchangeUniverseCount=exchangeSymbols.size;
  const minVolume=Math.max(0,Number($('minVolume').value)||0);
  const eligible=tickers.filter(t=>exchangeSymbols.has(t.symbol)&&(Number(t.quoteVolume)||0)>=minVolume)
   .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
@@ -780,6 +807,8 @@ async function scan(){
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,newCount=0,failures=0;
+  for(const key of Object.keys(signalRejections))signalRejections[key]=0;
+  renderSignalRejections();
   const startedJobKeys=new Set();
   const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
   $('workerCount').value=workerCount;
@@ -886,10 +915,16 @@ async function scan(){
      const before=directions[i-1],after=directions[i];
      const side=before===-1&&after===1?'bull':before===1&&after===-1?'bear':null;
      if(side){
+      if(side==='bull')signalRejections.bullDetected++;else signalRejections.bearDetected++;
       const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
       const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
-      const reversalPass=(side==='bull'?bullishAlertPass:bearishChangePass)&&rsiPasses(rsiSeries||[],i,rsiConfig,side);
-      if(reversalPass){
+      const confirmationPass=side==='bull'?bullishAlertPass:bearishChangePass;
+      const rsiPass=rsiPasses(rsiSeries||[],i,rsiConfig,side);
+      if(!confirmationPass&&!rsiPass)signalRejections.rejectedBoth++;
+      else if(!confirmationPass)signalRejections.rejected15m++;
+      else if(!rsiPass)signalRejections.rejectedRsi++;
+      else{
+       signalRejections.accepted++;
        scanStats[tf].reversals++;
        newCount++;
        addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i]});
@@ -968,6 +1003,7 @@ async function scan(){
   performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,startedJobs,finishedJobs,notStarted,missingJobs,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
   performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
   renderPerformance();
+  renderSignalRejections();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
    status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
