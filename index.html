@@ -363,6 +363,7 @@ let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0
 let recentErrors=[];
 let marketChanges=new Map();
 const candleCache=new Map();
+function intervalMs(tf){return ({'1m':60000,'3m':180000,'5m':300000,'15m':900000,'1h':3600000})[tf]||60000;}
 const candleWsFresh=new Map();
 const coreWs=new Map();
 let coreWsSymbolsKey='',coreWsStopped=true,coreWsOpen=0;
