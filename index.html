@@ -308,6 +308,18 @@ body .alert-entry > .alert-change.change-neutral{
  <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div><div class="note" id="perfMissing" style="margin-top:6px">Unstarted job details will appear here.</div>
  <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Started</th><th>Finished</th><th>Failed</th><th>Not started</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="9">No completed scans yet.</td></tr></tbody></table>
 </details>
+<details class="panel monitor-panel" id="monitoredCoinsPanel" open>
+ <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">MONITORED COINS · LIVE COVERAGE</summary>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">The exact selected universe used by Short Hunter. WebSocket coverage shows which candle intervals have delivered recent updates; it does not affect coin selection or alert decisions.</p>
+ <div class="perf-grid">
+  <div class="perf-metric"><span>Selected coins</span><strong id="monitoredCount">0</strong></div>
+  <div class="perf-metric"><span>Eligible contracts</span><strong id="monitoredEligible">—</strong></div>
+  <div class="perf-metric"><span>WebSocket groups</span><strong id="monitoredSockets">0 / 0</strong></div>
+  <div class="perf-metric"><span>Coins with fresh feed</span><strong id="monitoredFresh">0</strong></div>
+ </div>
+ <div class="status" id="monitoredStatus" style="margin-top:9px">Waiting for the first universe selection.</div>
+ <div style="overflow:auto"><table class="perf-table"><thead><tr><th>#</th><th>Symbol</th><th>24H change</th><th>24H quote volume</th><th>WS intervals fresh</th><th>Last WS update</th></tr></thead><tbody id="monitoredCoinRows"><tr><td colspan="6">Coins will appear when the scanner selects its universe.</td></tr></tbody></table></div>
+</details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
@@ -363,8 +375,60 @@ let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0
 let recentErrors=[];
 let marketChanges=new Map();
 const candleCache=new Map();
+function intervalMs(tf){return ({'1m':60000,'3m':180000,'5m':300000,'15m':900000,'1h':3600000})[tf]||60000;}
+const candleWsFresh=new Map();
+const coreWs=new Map();
+let coreWsSymbolsKey='',coreWsStopped=true,coreWsOpen=0;
+const coreWsRetry=new Map();
+let monitoredUniverse=[],eligibleUniverseCount=0,universeRenderTimer=null;
+function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
+function stopCoreMarketStream(){coreWsStopped=true;closeCoreSockets();coreWsRetry.clear();}
+function cacheKlineEvent(k){
+ if(!k||!k.s||!k.i)return;const key=k.s+'|'+k.i;
+ const row=[Number(k.t),Number(k.o),Number(k.h),Number(k.l),Number(k.c),Number(k.v),Number(k.T),Number(k.q),Number(k.n),Number(k.V),Number(k.Q),Number(k.B||0)];
+ if(!row.every(Number.isFinite))return;const rows=candleCache.get(key)||[],index=rows.findIndex(x=>Number(x[0])===row[0]);
+ if(index>=0)rows[index]=row;else rows.push(row);rows.sort((a,b)=>Number(a[0])-Number(b[0]));
+ if(rows.length>120)rows.splice(0,rows.length-120);candleCache.set(key,rows);candleWsFresh.set(key,Date.now());scheduleMonitoredRender();
+}
+function connectCoreChunk(index,symbols){
+ if(coreWsStopped||!running)return;const intervals=[...new Set([...TFS,...EMA_TFS])];
+ const streams=symbols.flatMap(symbol=>intervals.map(tf=>symbol.toLowerCase()+'@kline_'+tf));
+ const ws=new WebSocket('wss://fstream.binance.com/market/stream?streams='+streams.join('/'));let wasOpen=false;coreWs.set(index,ws);
+ ws.onopen=()=>{if(coreWs.get(index)!==ws)return;wasOpen=true;coreWsOpen++;coreWsRetry.set(index,1000);status('WebSocket connected · '+coreWsOpen+' stream groups');scheduleMonitoredRender();};
+ ws.onmessage=event=>{if(coreWs.get(index)!==ws)return;try{const payload=JSON.parse(event.data);if(payload.data&&payload.data.k)cacheKlineEvent(payload.data.k)}catch(error){}};
+ ws.onerror=()=>{};
+ ws.onclose=()=>{if(coreWs.get(index)!==ws)return;coreWs.delete(index);if(wasOpen)coreWsOpen=Math.max(0,coreWsOpen-1);scheduleMonitoredRender();if(coreWsStopped||!running)return;const delay=coreWsRetry.get(index)||1000;coreWsRetry.set(index,Math.min(delay*2,30000));setTimeout(()=>connectCoreChunk(index,symbols),delay);};
+}
+function updateCoreMarketStream(symbols){
+ const next=[...new Set(symbols)].sort(),key=next.join(','),total=Math.ceil(next.length/40);
+ if(key===coreWsSymbolsKey&&coreWs.size===total&&[...coreWs.values()].every(ws=>ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;
+ coreWsSymbolsKey=key;coreWsStopped=false;closeCoreSockets();coreWsRetry.clear();for(let i=0;i<total;i++)connectCoreChunk(i,next.slice(i*40,(i+1)*40));
+}
 const performance={restRequests:0,cacheHits:0,cacheMisses:0,activeWorkers:0,peakWorkers:0,history:[],last:null};
 const status=s=>{$('status').textContent=s};
+function scheduleMonitoredRender(){
+ if(universeRenderTimer!==null)return;
+ universeRenderTimer=setTimeout(()=>{universeRenderTimer=null;renderMonitoredCoins();},1500);
+}
+function renderMonitoredCoins(){
+ const intervals=[...new Set([...TFS,...EMA_TFS])];
+ const freshWindow= Math.max(120000,...intervals.map(tf=>intervalMs(tf)*2));
+ let freshCoins=0;
+ const rows=monitoredUniverse.map((coin,index)=>{
+  const fresh=intervals.filter(tf=>{const t=candleWsFresh.get(coin.symbol+'|'+tf);return t&&Date.now()-t<Math.max(120000,intervalMs(tf)*2);});
+  if(fresh.length)freshCoins++;
+  const latest=Math.max(0,...intervals.map(tf=>candleWsFresh.get(coin.symbol+'|'+tf)||0));
+  const last=latest?new Date(latest).toLocaleTimeString():'Waiting for feed';
+  const change=(coin.change>=0?'+':'')+coin.change.toFixed(2)+'%';
+  return '<tr><td>'+(index+1)+'</td><td><b>'+coin.symbol+'</b></td><td style="color:'+(coin.change>=0?'var(--green)':'var(--red)')+'">'+change+'</td><td>'+coin.volume.toLocaleString(undefined,{maximumFractionDigits:0})+'</td><td>'+fresh.length+'/'+intervals.length+' · '+(fresh.length?fresh.join(', '):'No recent updates')+'</td><td>'+last+'</td></tr>';
+ }).join('');
+ $('monitoredCount').textContent=String(monitoredUniverse.length);
+ $('monitoredEligible').textContent=String(eligibleUniverseCount);
+ $('monitoredSockets').textContent=coreWsOpen+' / '+coreWs.size;
+ $('monitoredFresh').textContent=String(freshCoins);
+ $('monitoredStatus').textContent=running?'Scanner running · '+(coreWsStopped?'WebSocket stream stopped': 'WebSocket stream '+(coreWsOpen?'connected':'connecting'))+' · '+intervals.join(', ')+' candle intervals per coin.':'Scanner stopped · last selected universe retained for inspection.';
+ $('monitoredCoinRows').innerHTML=rows||'<tr><td colspan="6">No coins selected by the current universe rules.</td></tr>';
+}
 function renderVerification(){
  const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
  const errorRows=recentErrors.length?recentErrors.slice(-8).reverse().map(e=>'<div class="note"><b>'+e.tf+' · '+e.symbol+'</b>: '+e.message+'</div>').join(''):'<div class="note">No request errors in the latest scan.</div>';
@@ -595,6 +659,7 @@ async function getUniverse(){
  losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
  const universe=[...selected.values()].sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,100).sort((a,b)=>a.change-b.change);
  marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
+ eligibleUniverseCount=eligible.length;monitoredUniverse=universe.map(x=>({...x}));scheduleMonitoredRender();
  $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
 }
@@ -653,28 +718,17 @@ function supertrend(candles){
  return {direction:dir,line};
 }
 async function getCachedKlines(symbol,tf){
- const key=symbol+'|'+tf;
- const cached=candleCache.get(key);
- if(!cached){
-  performance.cacheMisses++;
-  const rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
-  candleCache.set(key,rows.slice(-120));
-  return candleCache.get(key);
+ const key=symbol+'|'+tf,cached=candleCache.get(key),freshAt=candleWsFresh.get(key);
+ if(cached&&cached.length>=40&&freshAt&&Date.now()-freshAt<Math.max(120000,intervalMs(tf)*2)){performance.cacheHits++;return cached;}
+ if(!cached||cached.length<40){
+  performance.cacheMisses++;const rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
+  const full=rows.slice(-120);candleCache.set(key,full);candleWsFresh.delete(key);return full;
  }
  performance.cacheHits++;
- // Resume from the most recent cached candle; this normally downloads only the newest candle(s).
  let rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&startTime='+cached[cached.length-1][0]+'&limit=120');
- if(rows.length>=120){
-  // A long pause or stale cache: rebuild a fresh rolling history rather than risk missing candles.
-  rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');
-  candleCache.set(key,rows.slice(-120));
-  return candleCache.get(key);
- }
- const merged=new Map(cached.map(row=>[Number(row[0]),row]));
- for(const row of rows)merged.set(Number(row[0]),row);
- const updated=[...merged.values()].sort((a,b)=>Number(a[0])-Number(b[0])).slice(-120);
- candleCache.set(key,updated);
- return updated;
+ if(rows.length>=120){rows=await getJson(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=120');candleCache.set(key,rows.slice(-120));candleWsFresh.delete(key);return candleCache.get(key);}
+ const merged=new Map(cached.map(row=>[Number(row[0]),row]));for(const row of rows)merged.set(Number(row[0]),row);
+ const updated=[...merged.values()].sort((a,b)=>Number(a[0])-Number(b[0])).slice(-120);candleCache.set(key,updated);candleWsFresh.delete(key);return updated;
 }
 async function mapLimit(items,limit,fn){
  let index=0;
@@ -716,6 +770,8 @@ async function scan(){
   status('Loading USDⓈ-M contracts…');
   const universeStarted=Date.now();
   const symbols=await getUniverse();
+  if(running)updateCoreMarketStream(symbols);
+  renderMonitoredCoins();
   universeMs=Date.now()-universeStarted;
   supertrend15mDirections.clear();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
@@ -939,6 +995,8 @@ function start(){
 }
 function stop(){
  running=false;
+ stopCoreMarketStream();
+ renderMonitoredCoins();
  if(loopTimer)clearTimeout(loopTimer);
  loopTimer=null;
  $('startBtn').disabled=false;$('stopBtn').disabled=true;
