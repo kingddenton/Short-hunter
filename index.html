@@ -321,17 +321,6 @@ body .alert-entry > .alert-change.change-neutral{
  <div class="status" id="monitoredStatus" style="margin-top:9px">Waiting for the first universe selection.</div>
  <div style="overflow:auto"><table class="perf-table"><thead><tr><th>#</th><th>Symbol</th><th>24H change</th><th>24H quote volume</th><th>WS intervals fresh</th><th>Last WS update</th></tr></thead><tbody id="monitoredCoinRows"><tr><td colspan="6">Coins will appear when the scanner selects its universe.</td></tr></tbody></table></div>
 </details>
-<details class="panel monitor-panel" id="signalRejectionPanel" open>
- <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">SIGNAL REJECTION DIAGNOSTICS</summary>
- <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Counts newly detected Supertrend reversals and shows which confirmation gates rejected them. Counts are per symbol, timeframe and newly processed candle.</p>
- <div class="perf-grid">
-  <div class="perf-metric"><span>Reversal signals detected</span><strong id="rejectDetected">0</strong></div>
-  <div class="perf-metric"><span>Accepted reversals</span><strong id="rejectAccepted">0</strong></div>
-  <div class="perf-metric"><span>Rejected by 15m only</span><strong id="reject15m">0</strong></div>
-  <div class="perf-metric"><span>Rejected by RSI only</span><strong id="rejectRsi">0</strong></div>
-  <div class="perf-metric"><span>Rejected by both gates</span><strong id="rejectBoth">0</strong></div>
- </div>
- <div class="status" id="rejectStatus" style="margin-top:9px">Waiting for first scan.</div>
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
@@ -384,7 +373,7 @@ const retestAlerts={bull:[],bear:[]};
 const nearLineAlerts={bull:[],bear:[]};
 const lastProcessed=new Map();
 const seen=new Set();
-let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
+let scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,lastClose:null}]));
 let recentErrors=[];
 let marketChanges=new Map();
 const candleCache=new Map();
@@ -394,16 +383,6 @@ const coreWs=new Map();
 let coreWsSymbolsKey='',coreWsStopped=true,coreWsOpen=0;
 const coreWsRetry=new Map();
 let monitoredUniverse=[],eligibleUniverseCount=0,exchangeUniverseCount=0,universeRenderTimer=null;
-const signalRejections={bullDetected:0,bearDetected:0,accepted:0,rejected15m:0,rejectedRsi:0,rejectedBoth:0};
-function renderSignalRejections(){
- const detected=signalRejections.bullDetected+signalRejections.bearDetected;
- $('rejectDetected').textContent=String(detected);
- $('rejectAccepted').textContent=String(signalRejections.accepted);
- $('reject15m').textContent=String(signalRejections.rejected15m);
- $('rejectRsi').textContent=String(signalRejections.rejectedRsi);
- $('rejectBoth').textContent=String(signalRejections.rejectedBoth);
- $('rejectStatus').textContent='Bullish flips: '+signalRejections.bullDetected+' · Bearish flips: '+signalRejections.bearDetected+' · Rejections by 15m / RSI include signals rejected by both gates.';
-}
 function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
 function stopCoreMarketStream(){coreWsStopped=true;closeCoreSockets();coreWsRetry.clear();}
 function cacheKlineEvent(k){
@@ -454,7 +433,7 @@ function renderMonitoredCoins(){
  $('monitoredCoinRows').innerHTML=rows||'<tr><td colspan="6">No coins selected by the current universe rules.</td></tr>';
 }
 function renderVerification(){
- const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+s.reversals+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
+ const rows=TFS.map(tf=>{const s=scanStats[tf];return '<tr><td class="tf">'+tf+'</td><td>'+s.checked+'</td><td>'+s.errors+'</td><td>'+s.candles+'</td><td>'+(s.lastClose?new Date(s.lastClose).toLocaleTimeString(): '—')+'</td></tr>';}).join('');
  const errorRows=recentErrors.length?recentErrors.slice(-8).reverse().map(e=>'<div class="note"><b>'+e.tf+' · '+e.symbol+'</b>: '+e.message+'</div>').join(''):'<div class="note">No request errors in the latest scan.</div>';
  $('verification').innerHTML='<table><thead><tr><th>Timeframe</th><th>Data checks</th><th>Errors</th><th>Candles evaluated</th><th>Flips found</th><th>Latest candle close</th></tr></thead><tbody>'+rows+'</tbody></table><div class="note">Counts are for the most recent scan. The first scan establishes the baseline; it does not count older candles as new alerts.</div><div style="margin-top:8px"><b style="font-size:12px">Recent request failures</b>'+errorRows+'</div>';
 }
@@ -589,7 +568,7 @@ function processRsiMacdCandles(symbol,tf,candles){
  rsiMacdLastProcessed.set(key,candles[latest].closeTime);
 }
 function render(){
- const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="reversal" checked> Reversal</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-reversal"></i>Reversal</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
+ const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
  $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
@@ -625,7 +604,7 @@ function displaySidePass(alert,side){
   const el=$(tf+'-'+side);if(!el)continue;
   const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)&&displaySidePass(a,side)).slice(0,10);
   el.innerHTML=list.length?list.map(a=>{
-   const labels={state:'CURRENT STATE',reversal:'REVERSAL',retest:'ST RETEST',near:'NEAR-LINE'};
+   const labels={state:'CURRENT STATE',retest:'ST RETEST',near:'NEAR-LINE'};
    const rsiColor=Number.isFinite(a.rsi)?(a.rsi<=33?'rsi-deep-green':a.rsi<50?'rsi-light-green':a.rsi<=60?'rsi-orange':a.rsi<=75?'rsi-brown':'rsi-red'):'';
    const rsi=Number.isFinite(a.rsi)?'<span class="rsi-alert-value '+rsiColor+'">'+a.rsi.toFixed(1)+'</span>':'<span class="rsi-alert-value">—</span>';
    const change=Number.isFinite(a.change24h)?(a.change24h>0?'+':'')+a.change24h.toFixed(2)+'%':'—';
@@ -804,9 +783,7 @@ async function scan(){
   rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
-  let completed=0,newCount=0,failures=0;
-  for(const key of Object.keys(signalRejections))signalRejections[key]=0;
-  renderSignalRejections();
+  let completed=0,failures=0;
   const startedJobKeys=new Set();
   const workerCount=Math.max(1,Math.min(20,Math.floor(Number($('workerCount').value)||8)));
   $('workerCount').value=workerCount;
@@ -912,22 +889,6 @@ async function scan(){
      scanStats[tf].candles++;
      const before=directions[i-1],after=directions[i];
      const side=before===-1&&after===1?'bull':before===1&&after===-1?'bear':null;
-     if(side){
-      if(side==='bull')signalRejections.bullDetected++;else signalRejections.bearDetected++;
-      const rsiConfig=side==='bull'?bullRsiConfig:bearRsiConfig;
-      const rsiSeries=side==='bull'?bullRsiSeries:bearRsiSeries;
-      const confirmationPass=side==='bull'?bullishAlertPass:bearishChangePass;
-      const rsiPass=rsiPasses(rsiSeries||[],i,rsiConfig,side);
-      if(!confirmationPass&&!rsiPass)signalRejections.rejectedBoth++;
-      else if(!confirmationPass)signalRejections.rejected15m++;
-      else if(!rsiPass)signalRejections.rejectedRsi++;
-      else{
-       signalRejections.accepted++;
-       scanStats[tf].reversals++;
-       newCount++;
-       addAlert(tf,side,'reversal',{symbol,time:candles[i].closeTime,rsi:displayRsiSeries[i]});
-      }
-     }
      // Near-line detector: completed candle remains on the trend side and approaches, but does not touch, the ST line.
      const nearLine=stLines[i],close=candles[i].c;
      if(Number.isFinite(nearLine)&&nearLine>0&&before===after&&(after===1||after===-1)){
@@ -976,7 +937,7 @@ async function scan(){
     const jobMs=Date.now()-jobStarted;checkedJobs++;finishedJobs++;
     const coinStat=coinTimes.get(symbol)||{total:0,count:0};coinStat.total+=jobMs;coinStat.count++;coinTimes.set(symbol,coinStat);
     completed++;
-    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks · '+newCount+' new reversals');
+    if(completed%40===0)status('Checked '+completed+'/'+jobs.length+' timeframe checks');
    }
   });
   // The 1h EMA monitor runs as an independent alert-only pass; it does not enter TFS or qualification.
@@ -1001,12 +962,11 @@ async function scan(){
   performance.last={duration,workers:workerCount,universeSeconds:universeMs/1000,coins:symbols.length,totalJobs:jobs.length,startedJobs,finishedJobs,notStarted,missingJobs,checkedJobs,failures,restRequests:performance.restRequests,cacheHits:performance.cacheHits,cacheMisses:performance.cacheMisses,peakWorkers:performance.peakWorkers,fastest:coinAverages[0]||null,slowest:coinAverages[coinAverages.length-1]||null};
   performance.history.push(performance.last);if(performance.history.length>10)performance.history.shift();
   renderPerformance();
-  renderSignalRejections();
   if(rateLimited){
    const wait=Math.max(1,Math.ceil((rateLimitUntil-Date.now())/1000));
    status('Binance HTTP 418/429 · requests paused for '+wait+'s to respect Retry-After. Scanner will resume after cooldown.');
   }else{
-   status('Scan complete · '+symbols.length+' selected contracts · '+newCount+' new reversals · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s · '+workerCount+' workers');
+   status('Scan complete · '+symbols.length+' selected contracts · '+failures+' data errors · '+((Date.now()-started)/1000).toFixed(1)+'s · '+workerCount+' workers');
   }
  }catch(error){status('Scanner error · '+error.message)}
  finally{busy=false}
