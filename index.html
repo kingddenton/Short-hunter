@@ -327,10 +327,9 @@ body .alert-entry > .alert-change.change-neutral{
  <div class="perf-grid">
   <div class="perf-metric"><span>Reversal signals detected</span><strong id="rejectDetected">0</strong></div>
   <div class="perf-metric"><span>Accepted reversals</span><strong id="rejectAccepted">0</strong></div>
-  <div class="perf-metric"><span>Rejected by 15m confirmation</span><strong id="reject15m">0</strong></div>
-  <div class="perf-metric"><span>Rejected by RSI filter</span><strong id="rejectRsi">0</strong></div>
+  <div class="perf-metric"><span>Rejected by 15m only</span><strong id="reject15m">0</strong></div>
+  <div class="perf-metric"><span>Rejected by RSI only</span><strong id="rejectRsi">0</strong></div>
   <div class="perf-metric"><span>Rejected by both gates</span><strong id="rejectBoth">0</strong></div>
-  <div class="perf-metric"><span>Signals not yet evaluated</span><strong id="rejectPending">0</strong></div>
  </div>
  <div class="status" id="rejectStatus" style="margin-top:9px">Waiting for first scan.</div>
 </details>
@@ -395,7 +394,7 @@ const coreWs=new Map();
 let coreWsSymbolsKey='',coreWsStopped=true,coreWsOpen=0;
 const coreWsRetry=new Map();
 let monitoredUniverse=[],eligibleUniverseCount=0,exchangeUniverseCount=0,universeRenderTimer=null;
-const signalRejections={bullDetected:0,bearDetected:0,accepted:0,rejected15m:0,rejectedRsi:0,rejectedBoth:0,notEvaluated:0};
+const signalRejections={bullDetected:0,bearDetected:0,accepted:0,rejected15m:0,rejectedRsi:0,rejectedBoth:0};
 function renderSignalRejections(){
  const detected=signalRejections.bullDetected+signalRejections.bearDetected;
  $('rejectDetected').textContent=String(detected);
@@ -403,7 +402,6 @@ function renderSignalRejections(){
  $('reject15m').textContent=String(signalRejections.rejected15m);
  $('rejectRsi').textContent=String(signalRejections.rejectedRsi);
  $('rejectBoth').textContent=String(signalRejections.rejectedBoth);
- $('rejectPending').textContent=String(signalRejections.notEvaluated);
  $('rejectStatus').textContent='Bullish flips: '+signalRejections.bullDetected+' · Bearish flips: '+signalRejections.bearDetected+' · Rejections by 15m / RSI include signals rejected by both gates.';
 }
 function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
