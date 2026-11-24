@@ -373,6 +373,7 @@ let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=fal
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
 const qualifyingDiagnostics=new Map();
 const alertFeed=new Map();
+let alertRsiSortMode='newest';
 const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
 const retestArmed=new Map();
@@ -587,10 +588,12 @@ function processRsiMacdCandles(symbol,tf,candles){
  rsiMacdLastProcessed.set(key,candles[latest].closeTime);
 }
 function render(){
- const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
+ const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label><label class="alert-filter" for="alertRsiSort">Sort all alert boxes:</label><select id="alertRsiSort" style="background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px"><option value="newest">Newest first</option><option value="high">Highest RSI first</option><option value="low">Lowest RSI first</option></select></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
  $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
+ $('alertRsiSort').value=alertRsiSortMode;
+ $('alertRsiSort').addEventListener('change',()=>{alertRsiSortMode=$('alertRsiSort').value;saveSettings();draw();});
  draw();
  renderEmaAlerts();
  renderEmaTouchAlerts();
@@ -621,7 +624,11 @@ function displaySidePass(alert,side){
  const enabled=new Set([...document.querySelectorAll('.alertTypeFilter:checked')].map(el=>el.value));
  for(const tf of TFS)for(const side of ['bull','bear']){
   const el=$(tf+'-'+side);if(!el)continue;
-  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)&&displaySidePass(a,side)).slice(0,10);
+  const list=(alertFeed.get(tf+'|'+side)||[]).filter(a=>enabled.has(a.type)&&displaySidePass(a,side)).slice();
+  if(alertRsiSortMode==='high')list.sort((a,b)=>(Number.isFinite(b.rsi)?b.rsi:-Infinity)-(Number.isFinite(a.rsi)?a.rsi:-Infinity)||b.time-a.time);
+  else if(alertRsiSortMode==='low')list.sort((a,b)=>(Number.isFinite(a.rsi)?a.rsi:Infinity)-(Number.isFinite(b.rsi)?b.rsi:Infinity)||b.time-a.time);
+  else list.sort((a,b)=>b.time-a.time);
+  list.length=Math.min(list.length,10);
   el.innerHTML=list.length?list.map(a=>{
    const labels={state:'CURRENT STATE',retest:'ST RETEST',near:'NEAR-LINE'};
    const rsiColor=Number.isFinite(a.rsi)?(a.rsi<=33?'rsi-deep-green':a.rsi<50?'rsi-light-green':a.rsi<=60?'rsi-orange':a.rsi<=75?'rsi-brown':'rsi-red'):'';
@@ -1029,7 +1036,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -1059,6 +1066,7 @@ function loadSettings(){
   for(const id of getSettingsControls()){
    if(!Object.prototype.hasOwnProperty.call(settings,id))continue;
    if(id==='operationMode'){operationMode=settings[id]==='live'?'live':'closed';continue;}
+   if(id==='alertRsiSort'){alertRsiSortMode=['newest','high','low'].includes(settings[id])?settings[id]:'newest';continue;}
    const el=$(id);
    if(!el)continue;
    if(el.type==='checkbox')el.checked=Boolean(settings[id]);
