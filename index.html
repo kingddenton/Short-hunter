@@ -405,6 +405,14 @@ function cacheKlineEvent(k){
  if(!row.every(Number.isFinite))return;const rows=candleCache.get(key)||[],index=rows.findIndex(x=>Number(x[0])===row[0]);
  if(index>=0)rows[index]=row;else rows.push(row);rows.sort((a,b)=>Number(a[0])-Number(b[0]));
  if(rows.length>120)rows.splice(0,rows.length-120);candleCache.set(key,rows);candleWsFresh.set(key,Date.now());scheduleMonitoredRender();
+ // Feed the 3m/5m RSI-MACD monitor directly from Binance kline WebSocket events.
+ if(running&&(k.i==='3m'||k.i==='5m')&&$('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked){
+  if(operationMode==='live'||k.x===true){
+   const monitorRows=operationMode==='live'?rows:rows;
+   const monitorCandles=monitorRows.map(x=>({openTime:Number(x[0]),closeTime:Number(x[6]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4])}));
+   processRsiMacdCandles(k.s,k.i,monitorCandles,operationMode==='live');
+  }
+ }
 }
 function connectCoreChunk(index,symbols){
  if(coreWsStopped||!running)return;const intervals=[...new Set([...TFS,...EMA_TFS])];
@@ -587,21 +595,24 @@ function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
  renderRsiMacdAlerts();
  renderRsiMacdDashboardAlerts();
 }
-function processRsiMacdCandles(symbol,tf,candles){
+function processRsiMacdCandles(symbol,tf,candles,liveUpdate=false){
  if(!RSI_MACD_TFS.includes(tf)||!candles||candles.length<36)return;
  const key=symbol+'|'+tf,latest=candles.length-1,stored=rsiMacdLastProcessed.get(key);
  if(!$('rsiMacdEnabled_'+tf).checked){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
  const rsi=calculateRsiSeries(candles,14),hist=macdHistogramSeries(candles);
  if(stored===undefined){rsiMacdLastProcessed.set(key,candles[latest].closeTime);return;}
- for(let i=2;i<=latest;i++){
-  if(candles[i].closeTime<=stored||!Number.isFinite(rsi[i])||rsi[i]<=70||!Number.isFinite(hist[i]))continue;
+ // In LIVE mode recalculate the forming 3m/5m candle on every WebSocket update.
+ // In CLOSED mode process only newly completed candles, preserving the existing alert rule.
+ const first=liveUpdate?latest:2;
+ for(let i=first;i<=latest;i++){
+  if((!liveUpdate&&candles[i].closeTime<=stored)||!Number.isFinite(rsi[i])||rsi[i]<=70||!Number.isFinite(hist[i]))continue;
   if(hist[i]<0){
    addRsiMacdAlert(tf,'negative',symbol,rsi[i],hist[i],candles[i].closeTime);
   }else if(hist[i]>0&&Number.isFinite(hist[i-1])&&Number.isFinite(hist[i-2])&&hist[i]<hist[i-1]&&hist[i-1]<hist[i-2]){
    addRsiMacdAlert(tf,'shrink',symbol,rsi[i],hist[i],candles[i].closeTime);
   }
  }
- rsiMacdLastProcessed.set(key,candles[latest].closeTime);
+ if(!liveUpdate)rsiMacdLastProcessed.set(key,candles[latest].closeTime);
 }
 function render(){
  const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label><label class="alert-filter" for="alertRsiSort">Sort all alert boxes:</label><select id="alertRsiSort" style="background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px"><option value="newest">Newest first</option><option value="high">Highest RSI first</option><option value="low">Lowest RSI first</option></select></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
