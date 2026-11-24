@@ -406,10 +406,20 @@ function cacheKlineEvent(k){
  if(index>=0)rows[index]=row;else rows.push(row);rows.sort((a,b)=>Number(a[0])-Number(b[0]));
  if(rows.length>120)rows.splice(0,rows.length-120);candleCache.set(key,rows);candleWsFresh.set(key,Date.now());scheduleMonitoredRender();
  // Feed the 3m/5m RSI-MACD monitor directly from Binance kline WebSocket events.
- if(running&&(k.i==='3m'||k.i==='5m')&&$('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked){
-  if(operationMode==='live'||k.x===true){
-   const monitorRows=operationMode==='live'?rows:rows;
-   const monitorCandles=monitorRows.map(x=>({openTime:Number(x[0]),closeTime:Number(x[6]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4])}));
+ if(running&&(k.i==='3m'||k.i==='5m')){
+  const monitorCandles=rows.map(x=>({openTime:Number(x[0]),closeTime:Number(x[6]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4])}));
+  // The independent RSI monitor is based on the latest COMPLETED candle.
+  // Update it on the WebSocket candle-close event, regardless of RSI-MACD alert enablement.
+  if(k.x===true&&monitorCandles.length>=16){
+   const series=calculateRsiSeries(monitorCandles,14),value=series[series.length-1];
+   if(Number.isFinite(value)){
+    rsiMonitorStates.set(k.s+'|'+k.i,{symbol:k.s,tf:k.i,rsi:value,time:Number(k.T)});
+    drawRSIMonitor();
+    renderRsiMacdDashboardAlerts();
+   }
+  }
+  // Keep the separate RSI-MACD event monitor behaviour and its enable switch.
+  if($('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked&&(operationMode==='live'||k.x===true)){
    processRsiMacdCandles(k.s,k.i,monitorCandles,operationMode==='live');
   }
  }
@@ -576,13 +586,16 @@ function renderRsiMacdAlerts(){
 }
 function renderRsiMacdDashboardAlerts(){
  const el=$('rsiMacd-3m5m-column');if(!el)return;
- const combined=[];
- for(const tf of ['3m','5m'])for(const type of ['shrink','negative']){
-  for(const alert of RSI_MACD_ALERTS.get(rsiMacdKey(tf,type))||[])combined.push({...alert,tf,type});
- }
- combined.sort((a,b)=>b.time-a.time);
- const list=combined.slice(0,10);
- el.innerHTML=list.length?list.map(a=>'<div class="monitor-alert-row"><span class="monitor-alert-coin">'+a.symbol+'</span><span class="monitor-alert-meta">'+a.tf+' · <span class="'+(a.type==='shrink'?'monitor-alert-shrink':'monitor-alert-negative')+'">'+(a.type==='shrink'?'SHRINKING POSITIVE MACD':'NEGATIVE MACD')+'</span></span><span class="monitor-alert-meta">RSI '+a.rsi.toFixed(1)+' · Histogram '+a.hist.toFixed(6)+'</span><span class="monitor-alert-meta">'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No 3m/5m monitor alerts yet</div>';
+ const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ const renderTf=tf=>{
+  const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
+  const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
+  return '<div class="monitor-alert-row"><span class="monitor-alert-coin">'+tf+' · '+matches.length+' coins in range / '+all.length+' scanned</span></div>'+
+   (matches.length?matches.map(x=>'<div class="monitor-alert-row"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="monitor-alert-meta">RSI(14): '+x.rsi.toFixed(1)+' · completed candle</span><span class="monitor-alert-meta">Updated '+(x.time?new Date(x.time).toLocaleTimeString():'scan')+'</span></div>').join(''):'<div class="monitor-alert-meta">No coins currently within the selected RSI range.</div>');
+ };
+ el.innerHTML=valid?renderTf('3m')+renderTf('5m'):'<div class="empty">Check the independent RSI monitor minimum and maximum.</div>';
 }
 function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
  const key=rsiMacdKey(tf,type),list=RSI_MACD_ALERTS.get(key)||[];
@@ -690,6 +703,7 @@ function drawRSIMonitor(){
  const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
  const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
  const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
+ renderRsiMacdDashboardAlerts();
  $('rsiMonitorCount').textContent=valid?matches.length+' coins in range · '+all.length+' RSI values received':'Enter a valid RSI range (0–100)';
  $('rsiMonitorResults').innerHTML=matches.length?matches.map(x=>'<div class="monitor-coin"><span class="symbol">'+x.symbol+'</span><span class="monitor-value">'+x.rsi.toFixed(1)+'</span></div>').join(''):'<div class="empty">'+(valid?'No coins currently match this RSI range.':'Check the minimum and maximum values.')+'</div>';
 }
@@ -933,10 +947,11 @@ async function scan(){
     const bullRsiSeries=bullRsiConfig.enabled&&bullRsiConfig.valid?calculateRsiSeries(candles,bullRsiConfig.period):null;
     const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
     const displayRsiSeries=calculateRsiSeries(candles,14);
-    if(tf===$('rsiMonitorTf').value){
+    if(tf==='3m'||tf==='5m'){
      const monitorSeries=calculateRsiSeries(candles,14);
-     const monitorValue=monitorSeries[monitorSeries.length-1];
-     if(Number.isFinite(monitorValue))rsiMonitorStates.set(symbol,{symbol,tf,rsi:monitorValue});
+     const monitorIndex=scanMode==='live'?monitorSeries.length-2:monitorSeries.length-1;
+     const monitorValue=monitorSeries[monitorIndex];
+     if(Number.isFinite(monitorValue))rsiMonitorStates.set(symbol+'|'+tf,{symbol,tf,rsi:monitorValue,time:candles[monitorIndex].closeTime});
     }
     scanStats[tf].checked++;
     scanStats[tf].lastClose=candles[candles.length-1].closeTime;
@@ -1042,6 +1057,7 @@ async function scan(){
   renderQualifyingDiagnostics();
   renderEmaAlerts();
   drawRSIMonitor();
+  renderRsiMacdDashboardAlerts();
   renderVerification();
   const coinAverages=[...coinTimes.entries()].map(([symbol,v])=>({symbol,ms:v.total/v.count}));
   coinAverages.sort((a,b)=>a.ms-b.ms);
