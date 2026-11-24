@@ -12,12 +12,11 @@ header{padding:16px;border-bottom:1px solid var(--line);background:#0e1628}h1{fo
 .row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.controls{margin-bottom:14px}
 button{font:inherit;color:var(--text);background:#203454;border:1px solid #344563;border-radius:8px;padding:9px 14px;min-height:40px;font-weight:650;cursor:pointer}
 button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5b2632;border-color:#8b3d4c}button:disabled{opacity:.5;cursor:not-allowed}
-.mode-closed{border:1px solid var(--green);color:var(--green);font-weight:800}.mode-live{border:1px solid #83bdff;color:#83bdff;font-weight:800}.status{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf1 tf3" "tf15 tf5";gap:12px}
-#dashboard .tfcard:nth-child(1){grid-area:tf1}
-#dashboard .tfcard:nth-child(2){grid-area:tf3}
-#dashboard .tfcard:nth-child(3){grid-area:tf5}
-#dashboard .tfcard:nth-child(4){grid-area:tf15}
-.tfhead{font-weight:750;font-size:18px;margin-bottom:10px}.sides{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode-closed{border:1px solid var(--green);color:var(--green);font-weight:800}.mode-live{border:1px solid #83bdff;color:#83bdff;font-weight:800}.status{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"tf1bull tf1bear tf3bull tf3bear monitor" "tf15bull tf15bear tf5bull tf5bear .";gap:12px}
+.dashboard-alert-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0;overflow:hidden}
+.dashboard-alert-box.tf1bull{grid-area:tf1bull}.dashboard-alert-box.tf1bear{grid-area:tf1bear}.dashboard-alert-box.tf3bull{grid-area:tf3bull}.dashboard-alert-box.tf3bear{grid-area:tf3bear}.dashboard-alert-box.tf15bull{grid-area:tf15bull}.dashboard-alert-box.tf15bear{grid-area:tf15bear}.dashboard-alert-box.tf5bull{grid-area:tf5bull}.dashboard-alert-box.tf5bear{grid-area:tf5bear}.dashboard-alert-box.monitor-column{grid-area:monitor;border-color:#386b61}
+.dashboard-alert-box h3{font-size:13px;margin:0 0 9px;white-space:nowrap}.dashboard-alert-box .alert-columns{font-size:10px}.dashboard-alert-box .alert-entry{column-gap:3px}.dashboard-alert-box .alert-entry .symbol{font-size:12px!important;letter-spacing:-.5px}.dashboard-alert-box .alert-change{font-size:10px!important}.dashboard-alert-box .alert-cc{font-size:11px!important}
+.monitor-alert-row{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-top:1px solid #24314a;min-width:0}.monitor-alert-row:first-child{border-top:0}.monitor-alert-coin{font-weight:800;color:var(--text);overflow-wrap:anywhere}.monitor-alert-meta{font-size:11px;color:var(--muted)}.monitor-alert-shrink{color:#ffc078;font-weight:750}.monitor-alert-negative{color:#f16b78;font-weight:750}
 .side{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
 .side h3{font-size:12px;letter-spacing:.5px;margin:0 0 8px}.bull h3{color:var(--green)}.bear h3{color:var(--red)}
 .alert{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #24314a;font-size:13px}.alert:first-of-type{border-top:0}.symbol{font-weight:750}.rsi-value{color:#FF8C42}.positive{color:var(--green);font-weight:750}.negative{color:var(--red);font-weight:750}.time{color:var(--muted);font-size:11px}.empty{color:#7485a3;font-size:12px;padding:6px 0}
@@ -85,7 +84,8 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
 .monitor-panel{margin:14px 0}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.perf-metric{background:#0e1729;border:1px solid var(--line);border-radius:8px;padding:9px;min-width:0}.perf-metric span{display:block;color:var(--muted);font-size:11px}.perf-metric strong{display:block;font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.perf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.perf-table th,.perf-table td{text-align:left;padding:6px;border-top:1px solid var(--line)}.perf-table th{color:var(--muted)}@media(max-width:650px){.perf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
 .verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
-@media(max-width:650px){.grid{grid-template-columns:1fr;grid-template-areas:"tf1" "tf15" "tf3" "tf5"}.sides{grid-template-columns:1fr 1fr}header{padding:13px}main{padding:10px}}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"tf1bull tf1bear tf3bull" "tf3bear monitor monitor" "tf15bull tf15bear tf5bull" "tf5bear . ."}}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf1bull tf1bear" "tf3bull tf3bear" "monitor monitor" "tf15bull tf15bear" "tf5bull tf5bear"}header{padding:13px}main{padding:10px}}
 /* Consistent 16px typography throughout the scanner. */
 body,body *{font-size:16px!important}
 /* Identical 24H change typography for bullish and bearish alert rows. */
@@ -566,6 +566,16 @@ function renderRsiMacdAlerts(){
   el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">RSI '+a.rsi.toFixed(1)+' · '+a.hist.toFixed(6)+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
  }
 }
+function renderRsiMacdDashboardAlerts(){
+ const el=$('rsiMacd-3m5m-column');if(!el)return;
+ const combined=[];
+ for(const tf of ['3m','5m'])for(const type of ['shrink','negative']){
+  for(const alert of RSI_MACD_ALERTS.get(rsiMacdKey(tf,type))||[])combined.push({...alert,tf,type});
+ }
+ combined.sort((a,b)=>b.time-a.time);
+ const list=combined.slice(0,10);
+ el.innerHTML=list.length?list.map(a=>'<div class="monitor-alert-row"><span class="monitor-alert-coin">'+a.symbol+'</span><span class="monitor-alert-meta">'+a.tf+' · <span class="'+(a.type==='shrink'?'monitor-alert-shrink':'monitor-alert-negative')+'">'+(a.type==='shrink'?'SHRINKING POSITIVE MACD':'NEGATIVE MACD')+'</span></span><span class="monitor-alert-meta">RSI '+a.rsi.toFixed(1)+' · Histogram '+a.hist.toFixed(6)+'</span><span class="monitor-alert-meta">'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No 3m/5m monitor alerts yet</div>';
+}
 function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
  const key=rsiMacdKey(tf,type),list=RSI_MACD_ALERTS.get(key)||[];
  const old=list.findIndex(a=>a.symbol===symbol);
@@ -575,6 +585,7 @@ function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
  if(list.length>10)list.length=10;
  RSI_MACD_ALERTS.set(key,list);
  renderRsiMacdAlerts();
+ renderRsiMacdDashboardAlerts();
 }
 function processRsiMacdCandles(symbol,tf,candles){
  if(!RSI_MACD_TFS.includes(tf)||!candles||candles.length<36)return;
@@ -595,7 +606,8 @@ function processRsiMacdCandles(symbol,tf,candles){
 function render(){
  const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label><label class="alert-filter" for="alertRsiSort">Sort all alert boxes:</label><select id="alertRsiSort" style="background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px"><option value="newest">Newest first</option><option value="high">Highest RSI first</option><option value="low">Lowest RSI first</option></select></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
- $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ const sideBox=(tf,side)=>'<section class="dashboard-alert-box '+tf+side+'"><h3 style="color:'+(side==='bull'?'var(--green)':'var(--red)')+'">'+tf+' '+(side==='bull'?'BULLISH':'BEARISH')+' ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-'+side+'"><div class="empty">No alerts yet</div></div></section>';
+ $('dashboard').innerHTML=sideBox('1m','bull')+sideBox('1m','bear')+sideBox('3m','bull')+sideBox('3m','bear')+'<section class="dashboard-alert-box monitor-column"><h3 style="color:#83d7c0">3m / 5m MONITOR ALERTS</h3><div id="rsiMacd-3m5m-column"><div class="empty">No alerts yet</div></div></section>'+sideBox('15m','bull')+sideBox('15m','bear')+sideBox('5m','bull')+sideBox('5m','bear');
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  $('alertRsiSort').value=alertRsiSortMode;
  $('alertRsiSort').addEventListener('change',()=>{alertRsiSortMode=$('alertRsiSort').value;saveSettings();draw();});
@@ -603,6 +615,7 @@ function render(){
  renderEmaAlerts();
  renderEmaTouchAlerts();
  renderRsiMacdAlerts();
+ renderRsiMacdDashboardAlerts();
 }
 function addAlert(tf,side,type,data){
  const key=tf+'|'+side;
