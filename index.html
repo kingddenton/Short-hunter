@@ -590,10 +590,11 @@ function renderRsiMacdDashboardAlerts(){
  const min=Number(minRaw),max=Number(maxRaw);
  const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
  const renderTf=tf=>{
-  const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
+  const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf).sort((a,b)=>b.time-a.time);
   const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
-  return '<div class="monitor-alert-row"><span class="monitor-alert-coin">'+tf+' · '+matches.length+' coins in range / '+all.length+' scanned</span></div>'+
-   (matches.length?matches.map(x=>'<div class="monitor-alert-row"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="monitor-alert-meta">RSI(14): '+x.rsi.toFixed(1)+' · completed candle</span><span class="monitor-alert-meta">Updated '+(x.time?new Date(x.time).toLocaleTimeString():'scan')+'</span></div>').join(''):'<div class="monitor-alert-meta">No coins currently within the selected RSI range.</div>');
+  const latest=all.reduce((t,x)=>Math.max(t,x.time||0),0);
+  return '<div class="monitor-alert-row"><span class="monitor-alert-coin">'+tf+' · '+matches.length+' in range / '+all.length+' scanned</span><span class="monitor-alert-meta">LIVE WEBSOCKET · completed-candle RSI(14)'+(latest?' · Last update '+new Date(latest).toLocaleTimeString():' · Waiting for candle close')+'</span></div>'+
+   (matches.length?matches.map(x=>'<div class="monitor-alert-row"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="monitor-alert-meta">RSI(14): '+x.rsi.toFixed(1)+' · '+tf+' completed candle</span><span class="monitor-alert-meta">Updated '+(x.time?new Date(x.time).toLocaleTimeString():'waiting')+'</span></div>').join(''):'<div class="monitor-alert-meta">No coins currently within the selected RSI range.</div>');
  };
  el.innerHTML=valid?renderTf('3m')+renderTf('5m'):'<div class="empty">Check the independent RSI monitor minimum and maximum.</div>';
 }
