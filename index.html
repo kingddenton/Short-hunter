@@ -903,9 +903,9 @@ async function scan(){
    return fast[fast.length-1]-signal;
   };
   const passes15mConfirmation=async(symbol,side)=>{
-   // 15m confirmation is intentionally bullish-only; bearish alerts bypass it.
-   if(side!=='bull')return true;
-   if(!confirm15mBull&&!confirm15mMacd)return true;
+   // The 15m Supertrend gate remains bullish-only; the MACD histogram gate is symmetric.
+   if(side==='bull'&&!confirm15mBull&&!confirm15mMacd)return true;
+   if(side==='bear'&&!confirm15mMacd)return true;
    if(!confirmation15mPromises.has(symbol)){
     confirmation15mPromises.set(symbol,(async()=>{
      const raw15=await getCachedKlines(symbol,'15m');
@@ -917,7 +917,7 @@ async function scan(){
     })());
    }
    const result=await confirmation15mPromises.get(symbol);
-   if(confirm15mBull&&result.direction!==(side==='bull'?1:-1))return false;
+   if(side==='bull'&&confirm15mBull&&result.direction!==1)return false;
    if(confirm15mMacd&&(!Number.isFinite(result.histogram)||(side==='bull'?result.histogram<=0:result.histogram>=0)))return false;
    return true;
   };
@@ -977,7 +977,7 @@ async function scan(){
     const activeConfirmPass=activeSide==='bull'?bullishAlertPass:activeSide==='bear'?bearishChangePass:false;
     const rsiValue=displayRsiSeries[latest];
     const rsiGate=activeSide?(activeConfig.enabled?(activeConfig.valid?(activeRsiPass?'PASS':'FAIL · '+(Number.isFinite(activeSeries[latest])?'outside configured range':'RSI unavailable')):'FAIL · invalid min/max settings'):'PASS · disabled'):'Not applicable';
-    const confirmGate=activeSide==='bull'?(bullishAlertPass?'PASS':'FAIL · 15m confirmation'):activeSide==='bear'?'PASS · bearish bypasses 15m confirmation':'Not applicable';
+    const confirmGate=activeSide==='bull'?(bullishAlertPass?'PASS · bullish 15m gate':'FAIL · bullish 15m gate'):activeSide==='bear'?(confirm15mMacd?(bearishChangePass?'PASS · 15m MACD below zero':'FAIL · 15m MACD must be below zero'):'PASS · no bearish 15m MACD gate enabled'):'Not applicable';
     qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:activeSide==='bull'?'BULLISH':activeSide==='bear'?'BEARISH':'NO DIRECTION',rsi:rsiValue,rsiGate,confirmGate,result:!activeSide?'NOT QUALIFIED':activeRsiPass&&activeConfirmPass?'QUALIFIED':'NOT QUALIFIED',reason:!activeSide?'No current Supertrend direction':!activeRsiPass?'RSI confirmation did not pass':!activeConfirmPass?'15m confirmation did not pass':''});
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
