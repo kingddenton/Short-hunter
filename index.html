@@ -296,7 +296,7 @@ body .alert-entry > .alert-change.change-neutral{
 
  </div>
 </section>
-<details class="panel monitor-panel" id="performancePanel" open>
+<details class="panel monitor-panel" id="performancePanel">
  <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">PERFORMANCE MONITOR</summary>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Lightweight scan diagnostics. Measurements cover this browser session; they do not change scanner filters or alert decisions.</p>
  <div class="perf-grid">
@@ -312,7 +312,7 @@ body .alert-entry > .alert-change.change-neutral{
  <div class="status" id="perfStatus" style="margin-top:9px">Waiting for first scan.</div><div class="note" id="perfMissing" style="margin-top:6px">Unstarted job details will appear here.</div>
  <table class="perf-table"><thead><tr><th>Cycle</th><th>Workers</th><th>Duration</th><th>Coins</th><th>Started</th><th>Finished</th><th>Failed</th><th>Not started</th><th>Cache hits</th></tr></thead><tbody id="perfHistory"><tr><td colspan="9">No completed scans yet.</td></tr></tbody></table>
 </details>
-<details class="panel monitor-panel" id="monitoredCoinsPanel" open>
+<details class="panel monitor-panel" id="monitoredCoinsPanel">
  <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">MONITORED COINS · LIVE COVERAGE</summary>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">The exact selected universe used by Short Hunter. WebSocket coverage shows which candle intervals have delivered recent updates; it does not affect coin selection or alert decisions.</p>
  <div class="perf-grid">
@@ -326,7 +326,7 @@ body .alert-entry > .alert-change.change-neutral{
  <div style="overflow:auto"><table class="perf-table"><thead><tr><th>#</th><th>Symbol</th><th>24H change</th><th>24H quote volume</th><th>WS intervals fresh</th><th>Last WS update</th></tr></thead><tbody id="monitoredCoinRows"><tr><td colspan="6">Coins will appear when the scanner selects its universe.</td></tr></tbody></table></div>
 </details>
 </details>
-<details class="panel monitor-panel" id="qualifyingDiagnosticPanel" open>
+<details class="panel monitor-panel" id="qualifyingDiagnosticPanel">
  <summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">COIN QUALIFYING DIAGNOSTIC</summary>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Every selected coin is checked on all four Supertrend timeframes. This diagnostic explains its current direction, RSI / 15m confirmation gates and whether it entered a current-state display box. It does not change qualification or alerts.</p>
  <div class="perf-grid"><div class="perf-metric"><span>Selected coins</span><strong id="qualDiagCoins">0</strong></div><div class="perf-metric"><span>Qualified timeframe rows</span><strong id="qualDiagQualified">0</strong></div><div class="perf-metric"><span>Not qualified</span><strong id="qualDiagRejected">0</strong></div><div class="perf-metric"><span>Data issues</span><strong id="qualDiagErrors">0</strong></div></div>
