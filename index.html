@@ -794,7 +794,9 @@ function supertrend(candles){
   const mid=(candles[i].h+candles[i].l)/2,bu=mid+m*atr[i],bl=mid-m*atr[i];
   upper[i]=(i===p||bu<upper[i-1]||candles[i-1].c>upper[i-1])?bu:upper[i-1];
   lower[i]=(i===p||bl>lower[i-1]||candles[i-1].c<lower[i-1])?bl:lower[i-1];
-  if(i===p)dir[i]=candles[i].c>=mid?1:-1;
+  // Conventional Supertrend initialization: seed the first valid ATR bar bullish.
+  // Subsequent direction changes are driven by crossings of the prior final bands.
+  if(i===p)dir[i]=1;
   else if(dir[i-1]===1)dir[i]=candles[i].c<lower[i-1]?-1:1;
   else dir[i]=candles[i].c>upper[i-1]?1:-1;
  }
