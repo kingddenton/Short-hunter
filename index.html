@@ -606,6 +606,16 @@ function render(){
 }
 function addAlert(tf,side,type,data){
  const key=tf+'|'+side;
+ // A current-state alert must exist on only the side matching the latest
+ // Supertrend direction. Remove the opposite current-state row for this coin.
+ // Retest and near-line events are historical signals and remain independent.
+ if(type==='state'){
+  const oppositeKey=tf+'|'+(side==='bull'?'bear':'bull');
+  const oppositeList=alertFeed.get(oppositeKey)||[];
+  alertFeed.set(oppositeKey,oppositeList.filter(a=>!(a.type==='state'&&a.symbol===data.symbol)));
+  const oppositeStates=currentStates[tf]&&currentStates[tf][side==='bull'?'bear':'bull'];
+  if(oppositeStates)oppositeStates.delete(data.symbol);
+ }
  if(!alertFeed.has(key))alertFeed.set(key,[]);
  const list=alertFeed.get(key);
  const id=type+'|'+data.symbol+'|'+data.time;
