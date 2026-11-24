@@ -46,8 +46,12 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .alert-filter{font-size:16px}
 .alert-legend{font-size:16px}
 @media(max-width:900px){.alert-toolbar{overflow-x:auto}.alert-filters{flex:0 0 auto}.alert-legend{flex:0 0 auto}}
-.alert-entry{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px;align-items:center;column-gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a}
+.alert-entry{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px 42px;align-items:center;column-gap:7px;min-width:0;white-space:nowrap;overflow:hidden;padding:8px 0;border-top:1px solid #24314a}
 .alert-entry:first-child{border-top:0}
+.alert-columns{display:grid;grid-template-columns:7px minmax(0,1fr) 92px 78px 42px;column-gap:7px;align-items:center;padding:0 0 6px;color:var(--muted);font-size:11px;font-weight:750;white-space:nowrap}
+.alert-columns span:nth-child(3){text-align:center}.alert-columns span:nth-child(4),.alert-columns span:nth-child(5){text-align:right}
+.alert-cc{justify-self:end;text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+.alert-cc.positive{color:var(--green)}.alert-cc.negative{color:var(--red)}.alert-cc.neutral{color:var(--muted)}
 .alert-entry .symbol{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .alert-entry .symbol-st-bull{color:var(--green)!important}
 .alert-entry .symbol-st-bear{color:var(--red)!important}
@@ -373,6 +377,7 @@ let running=false,busy=false,loopTimer=null,exchangeSymbols=null,rateLimited=fal
 const currentStates=Object.fromEntries(TFS.map(tf=>[tf,{bull:new Map(),bear:new Map()}]));
 const qualifyingDiagnostics=new Map();
 const alertFeed=new Map();
+const macdCandleCounts=new Map();
 let alertRsiSortMode='newest';
 const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
@@ -590,7 +595,7 @@ function processRsiMacdCandles(symbol,tf,candles){
 function render(){
  const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label><label class="alert-filter" for="alertRsiSort">Sort all alert boxes:</label><select id="alertRsiSort" style="background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px"><option value="newest">Newest first</option><option value="high">Highest RSI first</option><option value="low">Lowest RSI first</option></select></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
- $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
+ $('dashboard').innerHTML=TFS.map(tf=>'<section class="tfcard"><div class="tfhead">'+tf+'</div><div class="sides"><div class="side bull"><h3>BULLISH ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-bull"><div class="empty">No alerts yet</div></div></div><div class="side bear"><h3>BEARISH ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-bear"><div class="empty">No alerts yet</div></div></div></div></section>').join('');
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  $('alertRsiSort').value=alertRsiSortMode;
  $('alertRsiSort').addEventListener('change',()=>{alertRsiSortMode=$('alertRsiSort').value;saveSettings();draw();});
@@ -637,7 +642,10 @@ function displaySidePass(alert,side){
    const changeClass=Number.isFinite(a.change24h)?(a.change24h>0?'change-positive':a.change24h<0?'change-negative':'change-neutral'):'change-neutral';
    const st15Direction=supertrend15mDirections.get(a.symbol);
    const symbolStClass=st15Direction===1?'symbol-st-bull':st15Direction===-1?'symbol-st-bear':'symbol-st-neutral';
-   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol '+symbolStClass+'">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span></div>';
+   const cc=macdCandleCounts.get(a.symbol+'|'+tf)||0;
+   const ccText=cc>0?'+'+cc:String(cc);
+   const ccClass=cc>0?'positive':cc<0?'negative':'neutral';
+   return '<div class="alert-entry"><span class="alert-dot kind-'+a.type+'" title="'+labels[a.type]+'"></span><span class="symbol '+symbolStClass+'">'+a.symbol+'</span><span class="alert-details">'+rsi+'</span><span class="alert-change '+changeClass+'">'+change+'</span><span class="alert-cc '+ccClass+'">'+ccText+'</span></div>';
   }).join(''):'<div class="empty">No alerts match this filter</div>';
  }
 }
@@ -871,6 +879,15 @@ async function scan(){
     // The selected global mode determines which candle feeds every calculation.
     const candleRows=scanMode==='live'?raw:raw.slice(0,-1);
     const candles=candleRows.map(k=>({openTime:Number(k[0]),closeTime:Number(k[6]),h:Number(k[2]),l:Number(k[3]),c:Number(k[4])}));
+    // Display-only MACD histogram run length; this never participates in alert qualification.
+    const histogram=macdHistogramSeries(candles.map(c=>c.c));
+    const lastHist=histogram[histogram.length-1];
+    let cc=0;
+    if(Number.isFinite(lastHist)&&lastHist!==0){
+     const sign=Math.sign(lastHist);
+     for(let i=histogram.length-1;i>=0&&Number.isFinite(histogram[i])&&Math.sign(histogram[i])===sign;i--)cc++;
+     macdCandleCounts.set(symbol+'|'+tf,sign*cc);
+    }else macdCandleCounts.set(symbol+'|'+tf,0);
     if(EMA_TFS.includes(tf))processEmaCandles(symbol,tf,candles);
     processRsiMacdCandles(symbol,tf,candles);
     const st=supertrend(candles);
