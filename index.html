@@ -1205,7 +1205,7 @@ $('modeBtn').onclick=()=>{operationMode=operationMode==='closed'?'live':'closed'
 $('startBtn').onclick=start;
 $('stopBtn').onclick=stop;
 $('scanBtn').onclick=scan;
-$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();EMA_TOUCH_ALERTS.clear();emaTouchArmed.clear();RSI_MACD_ALERTS.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderEmaTouchAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
+$('clearBtn').onclick=()=>{EMA_ALERTS.clear();emaWatchState.clear();EMA_TOUCH_ALERTS.clear();emaTouchArmed.clear();RSI_MACD_ALERTS.clear();macdFlipEntries.clear();macdFlipLastProcessed.clear();alertFeed.clear();for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};draw();renderEmaAlerts();renderEmaTouchAlerts();renderRsiMacdAlerts();status('All dashboard alerts cleared');};
 render();
 renderPerformance();
 renderEmaTouchAlerts();
