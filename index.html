@@ -343,6 +343,8 @@ body .alert-entry > .alert-change.change-neutral{
   <input id="rsiMonitorMin" type="number" min="0" max="100" step="0.1" value="0">
   <label for="rsiMonitorMax">Maximum RSI</label>
   <input id="rsiMonitorMax" type="number" min="0" max="100" step="0.1" value="100">
+  <label for="macdFlipCandleLimit">MACD flip display candles</label>
+  <input id="macdFlipCandleLimit" type="number" min="1" max="20" step="1" value="7" style="width:70px">
   <span class="status" id="rsiMonitorCount">Waiting for scan</span>
  </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
@@ -381,6 +383,8 @@ const macdCandleCounts=new Map();
 let alertRsiSortMode='newest';
 const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
+const macdFlipEntries=new Map();
+const macdFlipLastProcessed=new Map();
 const retestArmed=new Map();
 const nearLineArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
@@ -411,6 +415,7 @@ function cacheKlineEvent(k){
   // The independent RSI monitor is based on the latest COMPLETED candle.
   // Update it on the WebSocket candle-close event, regardless of RSI-MACD alert enablement.
   if(k.x===true&&monitorCandles.length>=16){
+   updateMacdFlipMonitor(k.s,k.i,monitorCandles);
    const series=calculateRsiSeries(monitorCandles,14),value=series[series.length-1];
    if(Number.isFinite(value)){
     rsiMonitorStates.set(k.s+'|'+k.i,{symbol:k.s,tf:k.i,rsi:value,time:Number(k.T)});
@@ -584,6 +589,29 @@ function renderRsiMacdAlerts(){
   el.innerHTML=list.length?list.slice(0,10).map(a=>'<div class="ema-alert-row"><span class="symbol">'+a.symbol+'</span><span class="ema-alert-status">RSI '+a.rsi.toFixed(1)+' · '+a.hist.toFixed(6)+'<br>'+new Date(a.time).toLocaleTimeString()+'</span></div>').join(''):'<div class="empty">No alerts yet</div>';
  }
 }
+function updateMacdFlipMonitor(symbol,tf,candles){
+ if((tf!=='3m'&&tf!=='5m')||!candles||candles.length<36)return;
+ const key=symbol+'|'+tf,latest=candles.length-1,stored=macdFlipLastProcessed.get(key);
+ const closes=candles.map(c=>c.c),hist=macdHistogramSeries(closes),rsi=calculateRsiSeries(candles,14);
+ if(stored===undefined){macdFlipLastProcessed.set(key,candles[latest].closeTime);return;}
+ for(let i=1;i<=latest;i++){
+  if(candles[i].closeTime<=stored)continue;
+  const h=hist[i],prior=hist[i-1],count=Number.isFinite(h)&&h>0?(()=>{let n=0;for(let j=i;j>=0&&Number.isFinite(hist[j])&&hist[j]>0;j--)n++;return n;})():0;
+  const existing=macdFlipEntries.get(key);
+  if(Number.isFinite(prior)&&prior<0&&Number.isFinite(h)&&h>0&&Number.isFinite(rsi[i])){
+   macdFlipEntries.set(key,{symbol,tf,rsi:rsi[i],count:1,time:candles[i].closeTime});
+  }else if(existing){
+   if(count>0&&count<=Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
+    existing.count=count;
+    existing.rsi=Number.isFinite(rsi[i])?rsi[i]:existing.rsi;
+   }else if(count===0||count>Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
+    macdFlipEntries.delete(key);
+   }
+  }
+ }
+ macdFlipLastProcessed.set(key,candles[latest].closeTime);
+ renderRsiMacdDashboardAlerts();
+}
 function renderRsiMacdDashboardAlerts(){
  const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
  const min=Number(minRaw),max=Number(maxRaw);
@@ -591,15 +619,19 @@ function renderRsiMacdDashboardAlerts(){
  for(const tf of ['3m','5m']){
   const el=$('rsi-monitor-'+tf);if(!el)continue;
   if(!valid){el.innerHTML='<div class="empty">Check RSI range</div>';continue;}
-  const matches=[...rsiMonitorStates.values()].filter(x=>x.tf===tf&&x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi);
+  const flips=[...macdFlipEntries.values()].filter(x=>x.tf===tf).sort((a,b)=>b.time-a.time).slice(0,10);
+  const flipSymbols=new Set(flips.map(x=>x.symbol));
+  const matches=[...rsiMonitorStates.values()].filter(x=>x.tf===tf&&x.rsi>=min&&x.rsi<=max&&!flipSymbols.has(x.symbol)).sort((a,b)=>b.rsi-a.rsi);
   const visible=tf==='3m'?matches.slice(0,10):matches;
-  el.innerHTML=visible.length?'<div class="rsi-compact-list">'+visible.map(x=>{
+  const flipHtml=flips.map(x=>'<div class="rsi-compact-item rsi-3m-single-line" style="color:#83bdff"><span class="monitor-alert-coin" style="color:#83bdff">'+x.symbol+'</span><span class="rsi-compact-value" style="color:#83bdff">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-value" style="color:#83bdff">+'+x.count+'</span></div>').join('');
+  const rsiHtml=visible.map(x=>{
    if(tf!=='3m')return '<div class="rsi-compact-item"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span></div>';
    const change=marketChanges.get(x.symbol);
    const changeText=Number.isFinite(change)?(change>0?'+':'')+change.toFixed(2)+'%':'—';
    const changeClass=Number.isFinite(change)?(change>0?'change-positive':change<0?'change-negative':'change-neutral'):'change-neutral';
    return '<div class="rsi-compact-item rsi-3m-single-line"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-change '+changeClass+'">'+changeText+'</span></div>';
-  }).join('')+'</div>':'<div class="empty">No coins in range</div>';
+  }).join('');
+  el.innerHTML=flipHtml||rsiHtml?'<div class="rsi-compact-list">'+flipHtml+rsiHtml+'</div>':'<div class="empty">No coins in range</div>';
  }
 }
 function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
@@ -955,6 +987,8 @@ async function scan(){
     const bearRsiSeries=bearRsiConfig.enabled&&bearRsiConfig.valid?calculateRsiSeries(candles,bearRsiConfig.period):null;
     const displayRsiSeries=calculateRsiSeries(candles,14);
     if(tf==='3m'||tf==='5m'){
+     const completedMonitorCandles=scanMode==='live'?candles.slice(0,-1):candles;
+     updateMacdFlipMonitor(symbol,tf,completedMonitorCandles);
      const monitorSeries=calculateRsiSeries(candles,14);
      const monitorIndex=scanMode==='live'?monitorSeries.length-2:monitorSeries.length-1;
      const monitorValue=monitorSeries[monitorIndex];
@@ -1110,7 +1144,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -1154,6 +1188,7 @@ function loadSettings(){
 $('rsiMonitorTf').onchange=drawRSIMonitor;
 $('rsiMonitorMin').oninput=drawRSIMonitor;
 $('rsiMonitorMax').oninput=drawRSIMonitor;
+$('macdFlipCandleLimit').onchange=()=>{saveSettings();renderRsiMacdDashboardAlerts();};
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
