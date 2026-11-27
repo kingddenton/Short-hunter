@@ -706,7 +706,8 @@ function renderRsiMacdDashboardAlerts(){
   const flips=[...macdFlipEntries.values()].filter(x=>x.tf===tf).sort((a,b)=>b.time-a.time).slice(0,10);
   const flipSymbols=new Set(flips.map(x=>x.symbol));
   const matches=[...rsiMonitorStates.values()].filter(x=>x.tf===tf&&x.rsi>=min&&x.rsi<=max&&!flipSymbols.has(x.symbol)).sort((a,b)=>b.rsi-a.rsi);
-  const visible=tf==='3m'?matches.slice(0,10):matches;
+  // Each timeframe window has a hard total cap of 10 rows, including MACD-flip entries.
+   const visible=matches.slice(0,Math.max(0,10-flips.length));
   const flipHtml=flips.map(x=>'<div class="rsi-compact-item rsi-3m-single-line" style="color:#83bdff"><span class="monitor-alert-coin" style="color:#83bdff">'+x.symbol+'</span><span class="rsi-compact-value" style="color:#83bdff">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-value" style="color:#83bdff">+'+x.count+'</span></div>').join('');
   const rsiHtml=visible.map(x=>{
    if(tf!=='3m')return '<div class="rsi-compact-item"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span></div>';
