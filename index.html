@@ -495,10 +495,10 @@ function cacheKlineEvent(k,fullMarketOnly=false){
  // Feed the 3m/5m RSI-MACD monitor directly from Binance kline WebSocket events.
  if(running&&(k.i==='3m'||k.i==='5m')){
   const monitorCandles=rows.map(x=>({openTime:Number(x[0]),closeTime:Number(x[6]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4])}));
-  // The independent RSI monitor is based on the latest COMPLETED candle.
-  // Update it on the WebSocket candle-close event, regardless of RSI-MACD alert enablement.
-  if(k.x===true&&monitorCandles.length>=16){
-   updateMacdFlipMonitor(k.s,k.i,monitorCandles);
+  // The independent RSI Monitor uses the currently forming candle and refreshes on every WebSocket update.
+  if(monitorCandles.length>=16){
+   // Keep MACD-flip detection restricted to confirmed candle closes; this change is only for RSI display.
+   if(k.x===true)updateMacdFlipMonitor(k.s,k.i,monitorCandles);
    const series=calculateRsiSeries(monitorCandles,14),value=series[series.length-1];
    if(Number.isFinite(value)){
     rsiMonitorStates.set(k.s+'|'+k.i,{symbol:k.s,tf:k.i,rsi:value,time:Number(k.T)});
