@@ -1270,7 +1270,7 @@ function loadSettings(){
    const el=$(id);
    if(!el)continue;
    if(el.type==='checkbox')el.checked=Boolean(settings[id]);
-   else el.value=String(settings[id]);
+   else el.value=String(id==='monitorSoundVolume'&&Number(settings[id])===20?60:settings[id]);
   }
   status('Saved settings restored from this device');
  }catch(error){
