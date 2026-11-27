@@ -12,9 +12,9 @@ header{padding:16px;border-bottom:1px solid var(--line);background:#0e1628}h1{fo
 .row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.controls{margin-bottom:14px}
 button{font:inherit;color:var(--text);background:#203454;border:1px solid #344563;border-radius:8px;padding:9px 14px;min-height:40px;font-weight:650;cursor:pointer}
 button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5b2632;border-color:#8b3d4c}button:disabled{opacity:.5;cursor:not-allowed}
-.mode-closed{border:1px solid var(--green);color:var(--green);font-weight:800}.mode-live{border:1px solid #83bdff;color:#83bdff;font-weight:800}.status{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear tf5bull tf5bear" "tf1bull tf1bear tf15bull tf15bear";gap:10px}
+.mode-closed{border:1px solid var(--green);color:var(--green);font-weight:800}.mode-live{border:1px solid #83bdff;color:#83bdff;font-weight:800}.status{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear tf5bull tf5bear monitor3" "tf1bull tf1bear tf15bull tf15bear monitor5";gap:10px}
 .dashboard-alert-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0;overflow:hidden}
-.dashboard-alert-box.tf1bull{grid-area:tf1bull}.dashboard-alert-box.tf1bear{grid-area:tf1bear}.dashboard-alert-box.tf3bull{grid-area:tf3bull}.dashboard-alert-box.tf3bear{grid-area:tf3bear}.dashboard-alert-box.tf15bull{grid-area:tf15bull}.dashboard-alert-box.tf15bear{grid-area:tf15bear}.dashboard-alert-box.tf5bull{grid-area:tf5bull}.dashboard-alert-box.tf5bear{grid-area:tf5bear}
+.dashboard-alert-box.tf1bull{grid-area:tf1bull}.dashboard-alert-box.tf1bear{grid-area:tf1bear}.dashboard-alert-box.tf3bull{grid-area:tf3bull}.dashboard-alert-box.tf3bear{grid-area:tf3bear}.dashboard-alert-box.tf15bull{grid-area:tf15bull}.dashboard-alert-box.tf15bear{grid-area:tf15bear}.dashboard-alert-box.tf5bull{grid-area:tf5bull}.dashboard-alert-box.tf5bear{grid-area:tf5bear}.dashboard-alert-box.monitor3-column{grid-area:monitor3;border-color:#386b61}.dashboard-alert-box.monitor5-column{grid-area:monitor5;border-color:#386b61}
 .dashboard-alert-box{box-sizing:border-box;width:100%;min-width:0}.dashboard-alert-box h3{font-size:13px;margin:0 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dashboard-alert-box .alert-columns,.dashboard-alert-box .alert-entry{grid-template-columns:5px minmax(0,1fr) 34px 48px 25px;column-gap:4px;min-width:0}.dashboard-alert-box .alert-columns{font-size:10px;font-weight:800}.dashboard-alert-box .alert-entry{padding:8px 0;align-items:center}.dashboard-alert-box .alert-entry .symbol{font-size:13px!important;font-weight:800;letter-spacing:-.45px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard-alert-box .alert-rsi,.dashboard-alert-box .rsi-alert-value{font-size:11px!important;font-weight:800}.dashboard-alert-box .alert-change{font-size:10px!important;font-weight:750}.dashboard-alert-box .alert-cc{font-size:11px!important;font-weight:800;min-width:0}
 .monitor-alert-row{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-top:1px solid #24314a;min-width:0}.rsi-compact-list{display:flex;flex-direction:column;gap:5px}.rsi-compact-item{display:flex;justify-content:space-between;align-items:center;gap:5px;padding:5px 0;border-top:1px solid #24314a;font-size:12px;min-width:0}.rsi-compact-item:first-child{border-top:0}.rsi-compact-item .monitor-alert-coin{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rsi-compact-value{font-weight:800;color:#83bdff;flex:0 0 auto}.rsi-3m-single-line{display:grid;grid-template-columns:minmax(0,1fr) 34px 48px;column-gap:5px;white-space:nowrap}.rsi-3m-single-line .monitor-alert-coin{min-width:0;overflow:hidden;text-overflow:ellipsis}.rsi-compact-change{font-size:11px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.monitor-alert-row:first-child{border-top:0}.monitor-alert-coin{font-weight:800;color:var(--text);overflow-wrap:anywhere}.monitor-alert-meta{font-size:11px;color:var(--muted)}.monitor-alert-shrink{color:#ffc078;font-weight:750}.monitor-alert-negative{color:#f16b78;font-weight:750}
 .side{background:#0e1729;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
@@ -84,8 +84,8 @@ button.primary{background:#245cba;border-color:#3476db}button.stop{background:#5
 .rsi-fields input{width:100%;min-width:0;background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px}
 .monitor-panel{margin:14px 0}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.perf-metric{background:#0e1729;border:1px solid var(--line);border-radius:8px;padding:9px;min-width:0}.perf-metric span{display:block;color:var(--muted);font-size:11px}.perf-metric strong{display:block;font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.perf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.perf-table th,.perf-table td{text-align:left;padding:6px;border-top:1px solid var(--line)}.perf-table th{color:var(--muted)}@media(max-width:650px){.perf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}.monitor-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.monitor-controls label{font-size:12px;color:var(--muted)}.monitor-controls select,.monitor-controls input{background:#0b1020;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:88px}.monitor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-top:10px}.monitor-coin{display:flex;justify-content:space-between;gap:8px;padding:9px;background:#0e1729;border:1px solid var(--line);border-radius:8px;font-size:13px}.monitor-value{font-weight:750;color:#67b7ff;font-variant-numeric:tabular-nums}
 .verify{margin:0 0 14px}.verify h2{font-size:15px;margin:0 0 9px}.verify table{width:100%;border-collapse:collapse;font-size:12px}.verify th,.verify td{text-align:left;padding:7px 8px;border-top:1px solid var(--line)}.verify th{color:var(--muted);font-weight:600}.verify td{font-variant-numeric:tabular-nums}.verify .tf{font-weight:750}.transition{color:var(--muted);font-size:11px}
-@media(max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear" "tf5bull tf5bear" "tf1bull tf1bear" "tf15bull tf15bear"}}
-@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear" "tf5bull tf5bear" "tf1bull tf1bear" "tf15bull tf15bear"}header{padding:13px}main{padding:10px}}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear tf5bull" "tf5bear monitor3 monitor3" "tf1bull tf1bear tf15bull" "tf15bear monitor5 monitor5"}}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"tf3bull tf3bear" "tf5bull tf5bear" "monitor3 monitor3" "tf1bull tf1bear" "tf15bull tf15bear" "monitor5 monitor5"}header{padding:13px}main{padding:10px}}
 /* Consistent 16px typography throughout the scanner. */
 body,body *{font-size:16px!important}
 /* Identical 24H change typography for bullish and bearish alert rows. */
@@ -335,7 +335,7 @@ body .alert-entry > .alert-change.change-neutral{
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
- <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent full-market RSI(14) monitor for active USDⓈ-M USDT perpetuals. It runs separately from the selected Supertrend universe and uses completed 3m/5m candles.</p>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
  <div class="monitor-controls">
   <label for="rsiMonitorTf">Timeframe</label>
   <select id="rsiMonitorTf"><option value="3m" selected>3m</option><option value="5m">5m</option></select>
@@ -343,19 +343,11 @@ body .alert-entry > .alert-change.change-neutral{
   <input id="rsiMonitorMin" type="number" min="0" max="100" step="0.1" value="0">
   <label for="rsiMonitorMax">Maximum RSI</label>
   <input id="rsiMonitorMax" type="number" min="0" max="100" step="0.1" value="100">
-  <label for="rsiMonitorEntryLimit">Maximum entries</label>
-  <input id="rsiMonitorEntryLimit" type="number" min="1" max="50" step="1" value="7" style="width:70px">
   <label for="macdFlipCandleLimit">MACD flip display candles</label>
   <input id="macdFlipCandleLimit" type="number" min="1" max="20" step="1" value="7" style="width:70px">
+  <label for="rsiMonitorEntryLimit">Maximum entries</label>
+  <input id="rsiMonitorEntryLimit" type="number" min="1" max="50" step="1" value="7" style="width:70px">
   <span class="status" id="rsiMonitorCount">Waiting for scan</span>
- </div>
- <div class="monitor-controls" style="margin-top:8px">
-  <label class="ema-toggle"><input type="checkbox" id="monitorSoundEnabled" checked> Soft alert sound</label>
-  <label for="monitorSoundVolume">Volume</label>
-  <input id="monitorSoundVolume" type="range" min="0" max="100" step="5" value="20" style="width:110px">
-  <span id="monitorSoundVolumeLabel" class="status">20%</span>
-  <button type="button" id="monitorSoundTest">Test sound</button>
-  <span id="fullMarketMonitorStatus" class="status">Full-market monitor will connect when scanning starts.</span>
  </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
 </section>
@@ -395,13 +387,6 @@ const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
 const macdFlipEntries=new Map();
 const macdFlipLastProcessed=new Map();
-const monitorSoundActive=new Set();
-let monitorAudioContext=null;
-const monitorWs=new Map();
-let monitorWsSymbolsKey='',monitorWsStopped=true,monitorWsOpen=0;
-const monitorWsRetry=new Map();
-let monitorMarketSymbols=[],monitorSeedGeneration=0,monitorSeedQueueRunning=false;
-const monitorSeeded=new Set(),monitorSeedInFlight=new Set();
 const retestArmed=new Map();
 const nearLineArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
@@ -420,73 +405,7 @@ const coreWsRetry=new Map();
 let monitoredUniverse=[],eligibleUniverseCount=0,exchangeUniverseCount=0,universeRenderTimer=null;
 function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
 function stopCoreMarketStream(){coreWsStopped=true;closeCoreSockets();coreWsRetry.clear();}
-function closeFullMarketMonitorSockets(){for(const ws of monitorWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}monitorWs.clear();monitorWsOpen=0;}
-function stopFullMarketMonitorStream(){monitorWsStopped=true;closeFullMarketMonitorSockets();monitorWsRetry.clear();monitorSeedGeneration++;}
-function playMonitorTone(tf,force=false){
- if(!force&&!$('monitorSoundEnabled').checked)return;
- const volume=Math.max(0,Math.min(100,Number($('monitorSoundVolume').value)||0))/100;
- if(volume<=0&&!force)return;
- try{
-  const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  if(!AudioCtx)return;
-  if(!monitorAudioContext)monitorAudioContext=new AudioCtx();
-  const ctx=monitorAudioContext;
-  const osc=ctx.createOscillator(),gain=ctx.createGain(),now=ctx.currentTime;
-  osc.type='sine';osc.frequency.setValueAtTime(tf==='3m'?587.33:739.99,now);
-  const level=force?Math.max(volume,0.20):volume;
-  gain.gain.setValueAtTime(0.0001,now);
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,level),now+0.018);
-  gain.gain.exponentialRampToValueAtTime(0.0001,now+0.24);
-  osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+0.25);
-  if(ctx.state==='suspended')ctx.resume();
- }catch(error){}
-}
-function triggerMonitorSound(tf){playMonitorTone(tf,false);}
-function connectFullMarketMonitorChunk(index,symbols){
- if(monitorWsStopped||!running||!symbols.length)return;
- const streams=symbols.flatMap(symbol=>['3m','5m'].map(tf=>symbol.toLowerCase()+'@kline_'+tf));
- const ws=new WebSocket('wss://fstream.binance.com/market/stream?streams='+streams.join('/'));let wasOpen=false;monitorWs.set(index,ws);
- ws.onopen=()=>{if(monitorWs.get(index)!==ws)return;wasOpen=true;monitorWsOpen++;monitorWsRetry.set(index,1000);scheduleMonitoredRender();};
- ws.onmessage=event=>{if(monitorWs.get(index)!==ws)return;try{const payload=JSON.parse(event.data);if(payload.data&&payload.data.k)cacheKlineEvent(payload.data.k,true)}catch(error){}};
- ws.onerror=()=>{};
- ws.onclose=()=>{if(monitorWs.get(index)!==ws)return;monitorWs.delete(index);if(wasOpen)monitorWsOpen=Math.max(0,monitorWsOpen-1);scheduleMonitoredRender();if(monitorWsStopped||!running)return;const delay=monitorWsRetry.get(index)||1000;monitorWsRetry.set(index,Math.min(delay*2,30000));setTimeout(()=>connectFullMarketMonitorChunk(index,symbols),delay);};
-}
-function updateFullMarketMonitorStream(allSymbols,coreSymbols){
- const coreSet=new Set(coreSymbols),next=[...new Set(allSymbols)].filter(symbol=>!coreSet.has(symbol)).sort(),key=next.join(','),chunkSize=350,total=Math.ceil(next.length/chunkSize);
- if(key===monitorWsSymbolsKey&&monitorWs.size===total&&[...monitorWs.values()].every(ws=>ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;
- monitorWsSymbolsKey=key;monitorWsStopped=false;closeFullMarketMonitorSockets();monitorWsRetry.clear();
- for(let i=0;i<total;i++)connectFullMarketMonitorChunk(i,next.slice(i*chunkSize,(i+1)*chunkSize));
- $('fullMarketMonitorStatus').textContent='Full market: '+allSymbols.length+' USDT perpetuals · '+next.length+' on dedicated 3m/5m streams · '+total+' monitor connections.';
-}
-async function seedFullMarketMonitorPair(symbol,tf,generation){
- const key=symbol+'|'+tf;
- if(monitorSeeded.has(key)||monitorSeedInFlight.has(key))return;
- monitorSeedInFlight.add(key);
- try{
-  const response=await fetch(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=60',{cache:'no-store'});
-  if(!response.ok){if(response.status===418||response.status===429){const retry=Math.max(1,Number(response.headers.get('Retry-After'))||(response.status===418?120:60));rateLimited=true;rateLimitUntil=Math.max(rateLimitUntil,Date.now()+retry*1000);}return;}
-  const rows=await response.json();
-  if(!running||generation!==monitorSeedGeneration||!Array.isArray(rows)||rows.length<36)return;
-  const existing=candleCache.get(key);
-  if(!existing||existing.length<36)candleCache.set(key,rows.slice(-120));
-  const closedRows=(candleCache.get(key)||[]).filter(row=>Number(row[6])<Date.now());
-  if(closedRows.length<36)return;
-  const candles=closedRows.map(row=>({openTime:Number(row[0]),closeTime:Number(row[6]),h:Number(row[2]),l:Number(row[3]),c:Number(row[4])}));
-  updateMacdFlipMonitor(symbol,tf,candles);
-  const values=calculateRsiSeries(candles,14),rsi=values[values.length-1];
-  if(Number.isFinite(rsi))rsiMonitorStates.set(key,{symbol,tf,rsi,time:candles[candles.length-1].closeTime});
-  monitorSeeded.add(key);
- }catch(error){}finally{monitorSeedInFlight.delete(key);}
-}
-function bootstrapFullMarketMonitor(symbols){
- if(monitorSeedQueueRunning)return;
- const generation=monitorSeedGeneration;
- const pending=symbols.flatMap(symbol=>['3m','5m'].map(tf=>({symbol,tf}))).filter(x=>!monitorSeeded.has(x.symbol+'|'+x.tf)&&!monitorSeedInFlight.has(x.symbol+'|'+x.tf));
- if(!pending.length)return;
- monitorSeedQueueRunning=true;
- (async()=>{let index=0;const workers=Array.from({length:6},async()=>{while(index<pending.length&&running&&generation===monitorSeedGeneration&&!rateLimited){const item=pending[index++];await seedFullMarketMonitorPair(item.symbol,item.tf,generation);}});await Promise.all(workers);monitorSeedQueueRunning=false;drawRSIMonitor();renderRsiMacdDashboardAlerts();$('fullMarketMonitorStatus').textContent='Full market: '+symbols.length+' USDT perpetuals · history seeded '+monitorSeeded.size+'/'+(symbols.length*2)+' timeframe feeds · live streams '+monitorWsOpen+'/'+monitorWs.size+'.';})();
-}
-function cacheKlineEvent(k,fullMarketOnly=false){
+function cacheKlineEvent(k){
  if(!k||!k.s||!k.i)return;const key=k.s+'|'+k.i;
  const row=[Number(k.t),Number(k.o),Number(k.h),Number(k.l),Number(k.c),Number(k.v),Number(k.T),Number(k.q),Number(k.n),Number(k.V),Number(k.Q),Number(k.B||0)];
  if(!row.every(Number.isFinite))return;const rows=candleCache.get(key)||[],index=rows.findIndex(x=>Number(x[0])===row[0]);
@@ -507,7 +426,7 @@ function cacheKlineEvent(k,fullMarketOnly=false){
    }
   }
   // Keep the separate RSI-MACD event monitor behaviour and its enable switch.
-  if(!fullMarketOnly&&$('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked&&(operationMode==='live'||k.x===true)){
+  if($('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked&&(operationMode==='live'||k.x===true)){
    processRsiMacdCandles(k.s,k.i,monitorCandles,operationMode==='live');
   }
  }
@@ -683,49 +602,39 @@ function updateMacdFlipMonitor(symbol,tf,candles){
   const existing=macdFlipEntries.get(key);
   if(Number.isFinite(prior)&&prior<0&&Number.isFinite(h)&&h>0&&Number.isFinite(rsi[i])){
    macdFlipEntries.set(key,{symbol,tf,rsi:rsi[i],count:1,time:candles[i].closeTime});
-   if(!monitorSoundActive.has(key)){monitorSoundActive.add(key);triggerMonitorSound(tf);}
   }else if(existing){
    if(count>0&&count<=Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
     existing.count=count;
     existing.rsi=Number.isFinite(rsi[i])?rsi[i]:existing.rsi;
    }else if(count===0||count>Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
-    macdFlipEntries.delete(key);monitorSoundActive.delete(key);
+    macdFlipEntries.delete(key);
    }
-  }else if(count===0){monitorSoundActive.delete(key);}
+  }
  }
  macdFlipLastProcessed.set(key,candles[latest].closeTime);
  renderRsiMacdDashboardAlerts();
 }
 function renderRsiMacdDashboardAlerts(){
- const tf=$('rsiMonitorTf').value;
  const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
  const min=Number(minRaw),max=Number(maxRaw);
  const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
- const output=$('rsiMonitorResults'),count=$('rsiMonitorCount');
- const entryLimit=Math.max(1,Math.min(50,Math.floor(Number($('rsiMonitorEntryLimit').value)||7)));
- $('rsiMonitorEntryLimit').value=entryLimit;
- if(!valid){
-  output.innerHTML='<div class="empty">Check the minimum and maximum RSI values.</div>';
-  count.textContent='Enter a valid RSI range (0–100)';
-  return;
+ for(const tf of ['3m','5m']){
+  const el=$('rsi-monitor-'+tf);if(!el)continue;
+  if(!valid){el.innerHTML='<div class="empty">Check RSI range</div>';continue;}
+  const flips=[...macdFlipEntries.values()].filter(x=>x.tf===tf).sort((a,b)=>b.time-a.time).slice(0,10);
+  const flipSymbols=new Set(flips.map(x=>x.symbol));
+  const matches=[...rsiMonitorStates.values()].filter(x=>x.tf===tf&&x.rsi>=min&&x.rsi<=max&&!flipSymbols.has(x.symbol)).sort((a,b)=>b.rsi-a.rsi);
+  const visible=tf==='3m'?matches.slice(0,10):matches;
+  const flipHtml=flips.map(x=>'<div class="rsi-compact-item rsi-3m-single-line" style="color:#83bdff"><span class="monitor-alert-coin" style="color:#83bdff">'+x.symbol+'</span><span class="rsi-compact-value" style="color:#83bdff">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-value" style="color:#83bdff">+'+x.count+'</span></div>').join('');
+  const rsiHtml=visible.map(x=>{
+   if(tf!=='3m')return '<div class="rsi-compact-item"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span></div>';
+   const change=marketChanges.get(x.symbol);
+   const changeText=Number.isFinite(change)?(change>0?'+':'')+change.toFixed(2)+'%':'—';
+   const changeClass=Number.isFinite(change)?(change>0?'change-positive':change<0?'change-negative':'change-neutral'):'change-neutral';
+   return '<div class="rsi-compact-item rsi-3m-single-line"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-change '+changeClass+'">'+changeText+'</span></div>';
+  }).join('');
+  el.innerHTML=flipHtml||rsiHtml?'<div class="rsi-compact-list">'+flipHtml+rsiHtml+'</div>':'<div class="empty">No coins in range</div>';
  }
- const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
- const flips=[...macdFlipEntries.values()].filter(x=>x.tf===tf).sort((a,b)=>b.time-a.time);
- const flipSymbols=new Set(flips.map(x=>x.symbol));
- const matches=all.filter(x=>x.rsi>=min&&x.rsi<=max&&!flipSymbols.has(x.symbol)).sort((a,b)=>b.rsi-a.rsi);
- const visibleFlips=flips.slice(0,entryLimit);
- const visibleMatches=matches.slice(0,Math.max(0,entryLimit-visibleFlips.length));
- const flipHtml=visibleFlips.map(x=>'<div class="rsi-compact-item rsi-3m-single-line" style="color:#83bdff"><span class="monitor-alert-coin" style="color:#83bdff">'+x.symbol+'</span><span class="rsi-compact-value" style="color:#83bdff">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-value" style="color:#83bdff">+'+x.count+'</span></div>').join('');
- const rsiHtml=visibleMatches.map(x=>{
-  if(tf!=='3m')return '<div class="rsi-compact-item"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span></div>';
-  const change=marketChanges.get(x.symbol);
-  const changeText=Number.isFinite(change)?(change>0?'+':'')+change.toFixed(2)+'%':'—';
-  const changeClass=Number.isFinite(change)?(change>0?'change-positive':change<0?'change-negative':'change-neutral'):'change-neutral';
-  return '<div class="rsi-compact-item rsi-3m-single-line"><span class="monitor-alert-coin">'+x.symbol+'</span><span class="rsi-compact-value">'+x.rsi.toFixed(1)+'</span><span class="rsi-compact-change '+changeClass+'">'+changeText+'</span></div>';
- }).join('');
- const html=flipHtml+rsiHtml;
- output.innerHTML=html?'<div class="rsi-compact-list">'+html+'</div>':'<div class="empty">No coins currently match this timeframe and RSI range.</div>';
- count.textContent=(visibleFlips.length+visibleMatches.length)+' / '+(flips.length+matches.length)+' entries · '+tf+' · max '+entryLimit;
 }
 function addRsiMacdAlert(tf,type,symbol,rsi,hist,time){
  const key=rsiMacdKey(tf,type),list=RSI_MACD_ALERTS.get(key)||[];
@@ -761,7 +670,7 @@ function render(){
  const filterHtml='<div class="alert-toolbar"><div class="alert-filters"><b style="font-size:16px">Show:</b><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="state" checked> Current state</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="retest" checked> Retest</label><label class="alert-filter"><input type="checkbox" class="alertTypeFilter" value="near" checked> Near-line</label><label class="alert-filter" for="alertRsiSort">Sort all alert boxes:</label><select id="alertRsiSort" style="background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px"><option value="newest">Newest first</option><option value="high">Highest RSI first</option><option value="low">Lowest RSI first</option></select></div><div class="alert-legend"><span class="alert-legend-item"><i class="alert-legend-dot legend-state"></i>Current state</span><span class="alert-legend-item"><i class="alert-legend-dot legend-retest"></i>ST retest</span><span class="alert-legend-item"><i class="alert-legend-dot legend-near"></i>Near-line</span></div></div>';
  $('alertFilterBar').innerHTML=filterHtml;
  const sideBox=(tf,side)=>'<section class="dashboard-alert-box '+tf+side+'"><h3 style="color:'+(side==='bull'?'var(--green)':'var(--red)')+'">'+tf+' '+(side==='bull'?'BULLISH':'BEARISH')+' ALERTS</h3><div class="alert-columns"><span></span><span>COIN</span><span>RSI</span><span>24H %</span><span>CC</span></div><div id="'+tf+'-'+side+'"><div class="empty">No alerts yet</div></div></section>';
- $('dashboard').innerHTML=sideBox('3m','bull')+sideBox('3m','bear')+sideBox('5m','bull')+sideBox('5m','bear')+sideBox('1m','bull')+sideBox('1m','bear')+sideBox('15m','bull')+sideBox('15m','bear');
+ $('dashboard').innerHTML=sideBox('3m','bull')+sideBox('3m','bear')+sideBox('5m','bull')+sideBox('5m','bear')+'<section class="dashboard-alert-box monitor3-column"><h3 style="color:#83d7c0">3m RSI</h3><div id="rsi-monitor-3m"><div class="empty">No coins in range</div></div></section>'+sideBox('1m','bull')+sideBox('1m','bear')+sideBox('15m','bull')+sideBox('15m','bear')+'<section class="dashboard-alert-box monitor5-column"><h3 style="color:#83d7c0">5m RSI</h3><div id="rsi-monitor-5m"><div class="empty">No coins in range</div></div></section>';
  document.querySelectorAll('.alertTypeFilter').forEach(el=>el.addEventListener('change',draw));
  $('alertRsiSort').value=alertRsiSortMode;
  $('alertRsiSort').addEventListener('change',()=>{alertRsiSortMode=$('alertRsiSort').value;saveSettings();draw();});
@@ -827,7 +736,17 @@ function displaySidePass(alert,side){
  }
 }
 function drawRSIMonitor(){
+ const tf=$('rsiMonitorTf').value;
+ const minRaw=$('rsiMonitorMin').value.trim(),maxRaw=$('rsiMonitorMax').value.trim();
+ const min=Number(minRaw),max=Number(maxRaw);
+ const valid=minRaw!==''&&maxRaw!==''&&Number.isFinite(min)&&Number.isFinite(max)&&min>=0&&max<=100&&min<=max;
+ const all=[...rsiMonitorStates.values()].filter(x=>x.tf===tf);
+ const matches=valid?all.filter(x=>x.rsi>=min&&x.rsi<=max).sort((a,b)=>b.rsi-a.rsi):[];
+ const entryLimit=Math.max(1,Math.min(50,Math.floor(Number($('rsiMonitorEntryLimit').value)||7)));
+ const visible=matches.slice(0,entryLimit);
  renderRsiMacdDashboardAlerts();
+ $('rsiMonitorCount').textContent=valid?visible.length+' shown · '+matches.length+' in range · '+all.length+' RSI values received':'Enter a valid RSI range (0–100)';
+ $('rsiMonitorResults').innerHTML=visible.length?visible.map(x=>'<div class="monitor-coin"><span class="symbol">'+x.symbol+'</span><span class="monitor-value">'+x.rsi.toFixed(1)+'</span></div>').join(''):'<div class="empty">'+(valid?'No coins currently match this RSI range.':'Check the minimum and maximum values.')+'</div>';
 }
 async function getJson(url){
  performance.restRequests++;
@@ -848,14 +767,12 @@ async function getUniverse(){
  ]);
  if(!exchangeSymbols){
   // Match the 3m–5m RSI Monitor: active USDT-quoted, USDT-margined contracts only.
-  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.contractType==='PERPETUAL'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
+  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
  }
  exchangeUniverseCount=exchangeSymbols.size;
  const minVolume=Math.max(0,Number($('minVolume').value)||0);
- const allEligible=tickers.filter(t=>exchangeSymbols.has(t.symbol))
+ const eligible=tickers.filter(t=>exchangeSymbols.has(t.symbol)&&(Number(t.quoteVolume)||0)>=minVolume)
   .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
- monitorMarketSymbols=allEligible.map(x=>x.symbol);
- const eligible=allEligible.filter(t=>t.volume>=minVolume);
  const ranked=[...eligible].sort((a,b)=>b.change-a.change);
  const size=Math.max(1,Number($('universeSize').value)||10);
  const mode=$('universeMode').value;
@@ -868,7 +785,7 @@ async function getUniverse(){
  gainers.forEach(x=>selected.set(x.symbol,x));
  losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
  const universe=[...selected.values()].sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,100).sort((a,b)=>a.change-b.change);
- marketChanges=new Map(allEligible.map(x=>[x.symbol,x.change]));
+ marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
  eligibleUniverseCount=eligible.length;monitoredUniverse=universe.map(x=>({...x}));scheduleMonitoredRender();
  $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
@@ -982,17 +899,14 @@ async function scan(){
   status('Loading USDⓈ-M contracts…');
   const universeStarted=Date.now();
   const symbols=await getUniverse();
-  if(running){
-   updateCoreMarketStream(symbols);
-   updateFullMarketMonitorStream(monitorMarketSymbols,symbols);
-   bootstrapFullMarketMonitor(monitorMarketSymbols);
-  }
+  if(running)updateCoreMarketStream(symbols);
   renderMonitoredCoins();
   universeMs=Date.now()-universeStarted;
   supertrend15mDirections.clear();
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
   qualifyingDiagnostics.clear();
   for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
+  rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,failures=0;
@@ -1226,7 +1140,6 @@ function start(){
 function stop(){
  running=false;
  stopCoreMarketStream();
- stopFullMarketMonitorStream();
  renderMonitoredCoins();
  if(loopTimer)clearTimeout(loopTimer);
  loopTimer=null;
@@ -1235,7 +1148,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','rsiMonitorEntryLimit','macdFlipCandleLimit','monitorSoundEnabled','monitorSoundVolume','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','rsiMonitorEntryLimit','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -1279,11 +1192,8 @@ function loadSettings(){
 $('rsiMonitorTf').onchange=drawRSIMonitor;
 $('rsiMonitorMin').oninput=drawRSIMonitor;
 $('rsiMonitorMax').oninput=drawRSIMonitor;
-$('rsiMonitorEntryLimit').onchange=()=>{saveSettings();renderRsiMacdDashboardAlerts();};
 $('macdFlipCandleLimit').onchange=()=>{saveSettings();renderRsiMacdDashboardAlerts();};
-$('monitorSoundEnabled').onchange=saveSettings;
-$('monitorSoundVolume').oninput=()=>{$('monitorSoundVolumeLabel').textContent=$('monitorSoundVolume').value+'%';saveSettings();};
-$('monitorSoundTest').onclick=()=>playMonitorTone('3m',true);
+$('rsiMonitorEntryLimit').onchange=()=>{saveSettings();drawRSIMonitor();};
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
@@ -1293,7 +1203,6 @@ $('confirm15mMacd').onchange=saveSettings;
 $('positive24hBothSides').onchange=()=>{saveSettings();draw();};
 $('negative24hBothSides').onchange=()=>{saveSettings();draw();};
 $('saveSettingsBtn').onclick=saveSettings;
-$('monitorSoundVolumeLabel').textContent=$('monitorSoundVolume').value+'%';
 for(const tf of EMA_TFS)$('emaEnabled_'+tf).onchange=saveSettings;
 for(const tf of RSI_MACD_TFS)$('rsiMacdEnabled_'+tf).onchange=saveSettings;
 function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
