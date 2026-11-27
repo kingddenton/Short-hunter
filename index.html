@@ -856,8 +856,13 @@ async function getUniverse(){
  const minVolume=Math.max(0,Number($('minVolume').value)||0);
  const allEligible=tickers.filter(t=>exchangeSymbols.has(t.symbol))
   .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
- monitorMarketSymbols=allEligible.map(x=>x.symbol);
  const eligible=allEligible.filter(t=>t.volume>=minVolume);
+ // Apply the same editable 24h quote-volume floor to every alert universe,
+ // including the independent full-market 3m/5m RSI and MACD-flip monitors.
+ monitorMarketSymbols=eligible.map(x=>x.symbol);
+ const eligibleMonitorSymbols=new Set(monitorMarketSymbols);
+ for(const key of rsiMonitorStates.keys())if(!eligibleMonitorSymbols.has(key.split('|')[0]))rsiMonitorStates.delete(key);
+ for(const key of macdFlipEntries.keys())if(!eligibleMonitorSymbols.has(key.split('|')[0])){macdFlipEntries.delete(key);monitorSoundActive.delete(key);}
  const ranked=[...eligible].sort((a,b)=>b.change-a.change);
  const size=Math.max(1,Number($('universeSize').value)||10);
  const mode=$('universeMode').value;
