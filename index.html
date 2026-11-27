@@ -335,7 +335,7 @@ body .alert-entry > .alert-change.change-neutral{
 </details>
 <section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
- <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent RSI(14) monitor. Shows every scanned coin whose completed-candle RSI falls within the selected range, regardless of Supertrend direction or RSI confirmation settings.</p>
+ <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent full-market RSI(14) monitor for active USDⓈ-M USDT perpetuals. It runs separately from the selected Supertrend universe and uses completed 3m/5m candles.</p>
  <div class="monitor-controls">
   <label for="rsiMonitorTf">Timeframe</label>
   <select id="rsiMonitorTf"><option value="3m" selected>3m</option><option value="5m">5m</option></select>
@@ -431,7 +431,7 @@ function playMonitorTone(tf,force=false){
   const ctx=monitorAudioContext;
   const osc=ctx.createOscillator(),gain=ctx.createGain(),now=ctx.currentTime;
   osc.type='sine';osc.frequency.setValueAtTime(tf==='3m'?587.33:739.99,now);
-  const level=(force?Math.max(volume,0.20):volume)*0.20;
+  const level=force?Math.max(volume,0.20):volume;
   gain.gain.setValueAtTime(0.0001,now);
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,level),now+0.018);
   gain.gain.exponentialRampToValueAtTime(0.0001,now+0.24);
@@ -445,7 +445,7 @@ function connectFullMarketMonitorChunk(index,symbols){
  const streams=symbols.flatMap(symbol=>['3m','5m'].map(tf=>symbol.toLowerCase()+'@kline_'+tf));
  const ws=new WebSocket('wss://fstream.binance.com/market/stream?streams='+streams.join('/'));let wasOpen=false;monitorWs.set(index,ws);
  ws.onopen=()=>{if(monitorWs.get(index)!==ws)return;wasOpen=true;monitorWsOpen++;monitorWsRetry.set(index,1000);scheduleMonitoredRender();};
- ws.onmessage=event=>{if(monitorWs.get(index)!==ws)return;try{const payload=JSON.parse(event.data);if(payload.data&&payload.data.k)cacheKlineEvent(payload.data.k)}catch(error){}};
+ ws.onmessage=event=>{if(monitorWs.get(index)!==ws)return;try{const payload=JSON.parse(event.data);if(payload.data&&payload.data.k)cacheKlineEvent(payload.data.k,true)}catch(error){}};
  ws.onerror=()=>{};
  ws.onclose=()=>{if(monitorWs.get(index)!==ws)return;monitorWs.delete(index);if(wasOpen)monitorWsOpen=Math.max(0,monitorWsOpen-1);scheduleMonitoredRender();if(monitorWsStopped||!running)return;const delay=monitorWsRetry.get(index)||1000;monitorWsRetry.set(index,Math.min(delay*2,30000));setTimeout(()=>connectFullMarketMonitorChunk(index,symbols),delay);};
 }
@@ -484,7 +484,7 @@ function bootstrapFullMarketMonitor(symbols){
  monitorSeedQueueRunning=true;
  (async()=>{let index=0;const workers=Array.from({length:6},async()=>{while(index<pending.length&&running&&generation===monitorSeedGeneration&&!rateLimited){const item=pending[index++];await seedFullMarketMonitorPair(item.symbol,item.tf,generation);}});await Promise.all(workers);monitorSeedQueueRunning=false;drawRSIMonitor();renderRsiMacdDashboardAlerts();$('fullMarketMonitorStatus').textContent='Full market: '+symbols.length+' USDT perpetuals · history seeded '+monitorSeeded.size+'/'+(symbols.length*2)+' timeframe feeds · live streams '+monitorWsOpen+'/'+monitorWs.size+'.';})();
 }
-function cacheKlineEvent(k){
+function cacheKlineEvent(k,fullMarketOnly=false){
  if(!k||!k.s||!k.i)return;const key=k.s+'|'+k.i;
  const row=[Number(k.t),Number(k.o),Number(k.h),Number(k.l),Number(k.c),Number(k.v),Number(k.T),Number(k.q),Number(k.n),Number(k.V),Number(k.Q),Number(k.B||0)];
  if(!row.every(Number.isFinite))return;const rows=candleCache.get(key)||[],index=rows.findIndex(x=>Number(x[0])===row[0]);
@@ -505,7 +505,7 @@ function cacheKlineEvent(k){
    }
   }
   // Keep the separate RSI-MACD event monitor behaviour and its enable switch.
-  if($('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked&&(operationMode==='live'||k.x===true)){
+  if(!fullMarketOnly&&$('rsiMacdEnabled_'+k.i)&&$('rsiMacdEnabled_'+k.i).checked&&(operationMode==='live'||k.x===true)){
    processRsiMacdCandles(k.s,k.i,monitorCandles,operationMode==='live');
   }
  }
@@ -845,7 +845,7 @@ async function getUniverse(){
  ]);
  if(!exchangeSymbols){
   // Match the 3m–5m RSI Monitor: active USDT-quoted, USDT-margined contracts only.
-  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
+  exchangeSymbols=new Set(info.symbols.filter(s=>s.status==='TRADING'&&s.contractType==='PERPETUAL'&&s.quoteAsset==='USDT'&&s.marginAsset==='USDT').map(s=>s.symbol));
  }
  exchangeUniverseCount=exchangeSymbols.size;
  const minVolume=Math.max(0,Number($('minVolume').value)||0);
@@ -990,7 +990,6 @@ async function scan(){
   for(const tf of TFS)currentStates[tf]={bull:new Map(),bear:new Map()};
   qualifyingDiagnostics.clear();
   for(const key of [...alertFeed.keys()])if(key.endsWith('|bull')||key.endsWith('|bear'))alertFeed.set(key,(alertFeed.get(key)||[]).filter(a=>a.type!=='state'));
-  rsiMonitorStates.clear();
   scanStats=Object.fromEntries(TFS.map(tf=>[tf,{checked:0,errors:0,baselines:0,candles:0,reversals:0,lastClose:null}]));
   recentErrors=[];
   let completed=0,failures=0;
