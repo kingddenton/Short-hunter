@@ -334,6 +334,14 @@ body .alert-entry > .alert-change.change-neutral{
  <div style="overflow:auto"><table class="perf-table"><thead><tr><th>Coin</th><th>TF</th><th>ST direction</th><th>RSI(14)</th><th>RSI gate</th><th>15m gate</th><th>Display result / reason</th></tr></thead><tbody id="qualDiagRows"><tr><td colspan="7">Run a scan to inspect selected coins.</td></tr></tbody></table></div>
 </details>
 <section class="panel monitor-panel">
+ <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND ALERT SETTINGS</h2>
+ <div class="monitor-controls">
+  <label for="retestTolerance">Touch tolerance (%)</label><input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
+  <label for="retestRearm">Rearm distance (%)</label><input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
+  <label for="nearLineTolerance">Near-line tolerance (%)</label><input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
+ </div>
+</section>
+<section class="panel monitor-panel">
  <h2 style="font-size:15px;margin:0">3m / 5m RSI MONITOR</h2>
  <p class="intro" style="color:var(--muted);font-size:12px;margin:5px 0">Independent full-market RSI(14) monitor for active USDⓈ-M USDT perpetuals. It runs separately from the selected Supertrend universe and uses completed 3m/5m candles.</p>
  <div class="monitor-controls">
@@ -358,14 +366,6 @@ body .alert-entry > .alert-change.change-neutral{
   <span id="fullMarketMonitorStatus" class="status">Full-market monitor will connect when scanning starts.</span>
  </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
-</section>
-<section class="panel monitor-panel">
- <h2 style="font-size:15px;margin:0 0 8px">SUPERTREND ALERT SETTINGS</h2>
- <div class="monitor-controls">
-  <label for="retestTolerance">Touch tolerance (%)</label><input id="retestTolerance" type="number" min="0" max="2" step="0.05" value="0.1">
-  <label for="retestRearm">Rearm distance (%)</label><input id="retestRearm" type="number" min="0.05" max="5" step="0.05" value="0.3">
-  <label for="nearLineTolerance">Near-line tolerance (%)</label><input id="nearLineTolerance" type="number" min="0.01" max="2" step="0.05" value="0.2">
- </div>
 </section>
 <details class="panel verify"><summary style="cursor:pointer;font-size:15px;font-weight:750;list-style:none">REVERSAL DETECTION CHECK</summary><div id="verification" class="status" style="margin-top:9px">Run a scan to see candle-check results.</div></details>
 <div id="alertFilterBar"></div>
