@@ -347,6 +347,14 @@ body .alert-entry > .alert-change.change-neutral{
   <input id="macdFlipCandleLimit" type="number" min="1" max="20" step="1" value="7" style="width:70px">
   <span class="status" id="rsiMonitorCount">Waiting for scan</span>
  </div>
+ <div class="monitor-controls" style="margin-top:8px">
+  <label class="ema-toggle"><input type="checkbox" id="monitorSoundEnabled" checked> Soft alert sound</label>
+  <label for="monitorSoundVolume">Volume</label>
+  <input id="monitorSoundVolume" type="range" min="0" max="100" step="5" value="20" style="width:110px">
+  <span id="monitorSoundVolumeLabel" class="status">20%</span>
+  <button type="button" id="monitorSoundTest">Test sound</button>
+  <span id="fullMarketMonitorStatus" class="status">Full-market monitor will connect when scanning starts.</span>
+ </div>
  <div id="rsiMonitorResults" class="monitor-list"><div class="empty">Run a scan to populate the RSI monitor.</div></div>
 </section>
 <section class="panel monitor-panel">
@@ -385,6 +393,13 @@ const supertrend15mDirections=new Map();
 const rsiMonitorStates=new Map();
 const macdFlipEntries=new Map();
 const macdFlipLastProcessed=new Map();
+const monitorSoundActive=new Set();
+let monitorAudioContext=null;
+const monitorWs=new Map();
+let monitorWsSymbolsKey='',monitorWsStopped=true,monitorWsOpen=0;
+const monitorWsRetry=new Map();
+let monitorMarketSymbols=[],monitorSeedGeneration=0,monitorSeedQueueRunning=false;
+const monitorSeeded=new Set(),monitorSeedInFlight=new Set();
 const retestArmed=new Map();
 const nearLineArmed=new Map();
 const retestAlerts={bull:[],bear:[]};
@@ -403,6 +418,72 @@ const coreWsRetry=new Map();
 let monitoredUniverse=[],eligibleUniverseCount=0,exchangeUniverseCount=0,universeRenderTimer=null;
 function closeCoreSockets(){for(const ws of coreWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}coreWs.clear();coreWsOpen=0;}
 function stopCoreMarketStream(){coreWsStopped=true;closeCoreSockets();coreWsRetry.clear();}
+function closeFullMarketMonitorSockets(){for(const ws of monitorWs.values()){ws.onclose=null;ws.onerror=null;try{ws.close()}catch(e){}}monitorWs.clear();monitorWsOpen=0;}
+function stopFullMarketMonitorStream(){monitorWsStopped=true;closeFullMarketMonitorSockets();monitorWsRetry.clear();monitorSeedGeneration++;}
+function playMonitorTone(tf,force=false){
+ if(!force&&!$('monitorSoundEnabled').checked)return;
+ const volume=Math.max(0,Math.min(100,Number($('monitorSoundVolume').value)||0))/100;
+ if(volume<=0&&!force)return;
+ try{
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)return;
+  if(!monitorAudioContext)monitorAudioContext=new AudioCtx();
+  const ctx=monitorAudioContext;
+  const osc=ctx.createOscillator(),gain=ctx.createGain(),now=ctx.currentTime;
+  osc.type='sine';osc.frequency.setValueAtTime(tf==='3m'?587.33:739.99,now);
+  const level=(force?Math.max(volume,0.20):volume)*0.20;
+  gain.gain.setValueAtTime(0.0001,now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,level),now+0.018);
+  gain.gain.exponentialRampToValueAtTime(0.0001,now+0.24);
+  osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+0.25);
+  if(ctx.state==='suspended')ctx.resume();
+ }catch(error){}
+}
+function triggerMonitorSound(tf){playMonitorTone(tf,false);}
+function connectFullMarketMonitorChunk(index,symbols){
+ if(monitorWsStopped||!running||!symbols.length)return;
+ const streams=symbols.flatMap(symbol=>['3m','5m'].map(tf=>symbol.toLowerCase()+'@kline_'+tf));
+ const ws=new WebSocket('wss://fstream.binance.com/market/stream?streams='+streams.join('/'));let wasOpen=false;monitorWs.set(index,ws);
+ ws.onopen=()=>{if(monitorWs.get(index)!==ws)return;wasOpen=true;monitorWsOpen++;monitorWsRetry.set(index,1000);scheduleMonitoredRender();};
+ ws.onmessage=event=>{if(monitorWs.get(index)!==ws)return;try{const payload=JSON.parse(event.data);if(payload.data&&payload.data.k)cacheKlineEvent(payload.data.k)}catch(error){}};
+ ws.onerror=()=>{};
+ ws.onclose=()=>{if(monitorWs.get(index)!==ws)return;monitorWs.delete(index);if(wasOpen)monitorWsOpen=Math.max(0,monitorWsOpen-1);scheduleMonitoredRender();if(monitorWsStopped||!running)return;const delay=monitorWsRetry.get(index)||1000;monitorWsRetry.set(index,Math.min(delay*2,30000));setTimeout(()=>connectFullMarketMonitorChunk(index,symbols),delay);};
+}
+function updateFullMarketMonitorStream(allSymbols,coreSymbols){
+ const coreSet=new Set(coreSymbols),next=[...new Set(allSymbols)].filter(symbol=>!coreSet.has(symbol)).sort(),key=next.join(','),chunkSize=350,total=Math.ceil(next.length/chunkSize);
+ if(key===monitorWsSymbolsKey&&monitorWs.size===total&&[...monitorWs.values()].every(ws=>ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;
+ monitorWsSymbolsKey=key;monitorWsStopped=false;closeFullMarketMonitorSockets();monitorWsRetry.clear();
+ for(let i=0;i<total;i++)connectFullMarketMonitorChunk(i,next.slice(i*chunkSize,(i+1)*chunkSize));
+ $('fullMarketMonitorStatus').textContent='Full market: '+allSymbols.length+' USDT perpetuals · '+next.length+' on dedicated 3m/5m streams · '+total+' monitor connections.';
+}
+async function seedFullMarketMonitorPair(symbol,tf,generation){
+ const key=symbol+'|'+tf;
+ if(monitorSeeded.has(key)||monitorSeedInFlight.has(key))return;
+ monitorSeedInFlight.add(key);
+ try{
+  const response=await fetch(BASE+'/fapi/v1/klines?symbol='+symbol+'&interval='+tf+'&limit=60',{cache:'no-store'});
+  if(!response.ok){if(response.status===418||response.status===429){const retry=Math.max(1,Number(response.headers.get('Retry-After'))||(response.status===418?120:60));rateLimited=true;rateLimitUntil=Math.max(rateLimitUntil,Date.now()+retry*1000);}return;}
+  const rows=await response.json();
+  if(!running||generation!==monitorSeedGeneration||!Array.isArray(rows)||rows.length<36)return;
+  const existing=candleCache.get(key);
+  if(!existing||existing.length<36)candleCache.set(key,rows.slice(-120));
+  const closedRows=(candleCache.get(key)||[]).filter(row=>Number(row[6])<Date.now());
+  if(closedRows.length<36)return;
+  const candles=closedRows.map(row=>({openTime:Number(row[0]),closeTime:Number(row[6]),h:Number(row[2]),l:Number(row[3]),c:Number(row[4])}));
+  updateMacdFlipMonitor(symbol,tf,candles);
+  const values=calculateRsiSeries(candles,14),rsi=values[values.length-1];
+  if(Number.isFinite(rsi))rsiMonitorStates.set(key,{symbol,tf,rsi,time:candles[candles.length-1].closeTime});
+  monitorSeeded.add(key);
+ }catch(error){}finally{monitorSeedInFlight.delete(key);}
+}
+function bootstrapFullMarketMonitor(symbols){
+ if(monitorSeedQueueRunning)return;
+ const generation=monitorSeedGeneration;
+ const pending=symbols.flatMap(symbol=>['3m','5m'].map(tf=>({symbol,tf}))).filter(x=>!monitorSeeded.has(x.symbol+'|'+x.tf)&&!monitorSeedInFlight.has(x.symbol+'|'+x.tf));
+ if(!pending.length)return;
+ monitorSeedQueueRunning=true;
+ (async()=>{let index=0;const workers=Array.from({length:6},async()=>{while(index<pending.length&&running&&generation===monitorSeedGeneration&&!rateLimited){const item=pending[index++];await seedFullMarketMonitorPair(item.symbol,item.tf,generation);}});await Promise.all(workers);monitorSeedQueueRunning=false;drawRSIMonitor();renderRsiMacdDashboardAlerts();$('fullMarketMonitorStatus').textContent='Full market: '+symbols.length+' USDT perpetuals · history seeded '+monitorSeeded.size+'/'+(symbols.length*2)+' timeframe feeds · live streams '+monitorWsOpen+'/'+monitorWs.size+'.';})();
+}
 function cacheKlineEvent(k){
  if(!k||!k.s||!k.i)return;const key=k.s+'|'+k.i;
  const row=[Number(k.t),Number(k.o),Number(k.h),Number(k.l),Number(k.c),Number(k.v),Number(k.T),Number(k.q),Number(k.n),Number(k.V),Number(k.Q),Number(k.B||0)];
@@ -600,14 +681,15 @@ function updateMacdFlipMonitor(symbol,tf,candles){
   const existing=macdFlipEntries.get(key);
   if(Number.isFinite(prior)&&prior<0&&Number.isFinite(h)&&h>0&&Number.isFinite(rsi[i])){
    macdFlipEntries.set(key,{symbol,tf,rsi:rsi[i],count:1,time:candles[i].closeTime});
+   if(!monitorSoundActive.has(key)){monitorSoundActive.add(key);triggerMonitorSound(tf);}
   }else if(existing){
    if(count>0&&count<=Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
     existing.count=count;
     existing.rsi=Number.isFinite(rsi[i])?rsi[i]:existing.rsi;
    }else if(count===0||count>Math.max(1,Math.min(20,Math.floor(Number($('macdFlipCandleLimit').value)||7)))){
-    macdFlipEntries.delete(key);
+    macdFlipEntries.delete(key);monitorSoundActive.delete(key);
    }
-  }
+  }else if(count===0){monitorSoundActive.delete(key);}
  }
  macdFlipLastProcessed.set(key,candles[latest].closeTime);
  renderRsiMacdDashboardAlerts();
@@ -767,8 +849,10 @@ async function getUniverse(){
  }
  exchangeUniverseCount=exchangeSymbols.size;
  const minVolume=Math.max(0,Number($('minVolume').value)||0);
- const eligible=tickers.filter(t=>exchangeSymbols.has(t.symbol)&&(Number(t.quoteVolume)||0)>=minVolume)
+ const allEligible=tickers.filter(t=>exchangeSymbols.has(t.symbol))
   .map(t=>({symbol:t.symbol,change:Number(t.priceChangePercent)||0,volume:Number(t.quoteVolume)||0}));
+ monitorMarketSymbols=allEligible.map(x=>x.symbol);
+ const eligible=allEligible.filter(t=>t.volume>=minVolume);
  const ranked=[...eligible].sort((a,b)=>b.change-a.change);
  const size=Math.max(1,Number($('universeSize').value)||10);
  const mode=$('universeMode').value;
@@ -781,7 +865,7 @@ async function getUniverse(){
  gainers.forEach(x=>selected.set(x.symbol,x));
  losers.forEach(x=>{if(!selected.has(x.symbol))selected.set(x.symbol,x)});
  const universe=[...selected.values()].sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,100).sort((a,b)=>a.change-b.change);
- marketChanges=new Map(eligible.map(x=>[x.symbol,x.change]));
+ marketChanges=new Map(allEligible.map(x=>[x.symbol,x.change]));
  eligibleUniverseCount=eligible.length;monitoredUniverse=universe.map(x=>({...x}));scheduleMonitoredRender();
  $('universeStatus').textContent='Eligible USDT perpetuals: '+eligible.length+' · Selected: '+universe.length+' · '+(mode==='percent'?'24H gainers ≥ +'+size+'% and losers ≤ −'+size+'%':'Top '+gainers.length+' gainers and bottom '+losers.length+' losers')+' · Minimum volume: '+minVolume.toLocaleString()+' USDT.';
  return universe.map(x=>x.symbol);
@@ -895,7 +979,11 @@ async function scan(){
   status('Loading USDⓈ-M contracts…');
   const universeStarted=Date.now();
   const symbols=await getUniverse();
-  if(running)updateCoreMarketStream(symbols);
+  if(running){
+   updateCoreMarketStream(symbols);
+   updateFullMarketMonitorStream(monitorMarketSymbols,symbols);
+   bootstrapFullMarketMonitor(monitorMarketSymbols);
+  }
   renderMonitoredCoins();
   universeMs=Date.now()-universeStarted;
   supertrend15mDirections.clear();
@@ -1136,6 +1224,7 @@ function start(){
 function stop(){
  running=false;
  stopCoreMarketStream();
+ stopFullMarketMonitorStream();
  renderMonitoredCoins();
  if(loopTimer)clearTimeout(loopTimer);
  loopTimer=null;
@@ -1144,7 +1233,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','monitorSoundEnabled','monitorSoundVolume','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
@@ -1189,6 +1278,9 @@ $('rsiMonitorTf').onchange=drawRSIMonitor;
 $('rsiMonitorMin').oninput=drawRSIMonitor;
 $('rsiMonitorMax').oninput=drawRSIMonitor;
 $('macdFlipCandleLimit').onchange=()=>{saveSettings();renderRsiMacdDashboardAlerts();};
+$('monitorSoundEnabled').onchange=saveSettings;
+$('monitorSoundVolume').oninput=()=>{$('monitorSoundVolumeLabel').textContent=$('monitorSoundVolume').value+'%';saveSettings();};
+$('monitorSoundTest').onclick=()=>playMonitorTone('3m',true);
 $('retestTolerance').onchange=saveSettings;
 $('retestRearm').onchange=saveSettings;
 $('nearLineTolerance').onchange=saveSettings;
@@ -1198,6 +1290,7 @@ $('confirm15mMacd').onchange=saveSettings;
 $('positive24hBothSides').onchange=()=>{saveSettings();draw();};
 $('negative24hBothSides').onchange=()=>{saveSettings();draw();};
 $('saveSettingsBtn').onclick=saveSettings;
+$('monitorSoundVolumeLabel').textContent=$('monitorSoundVolume').value+'%';
 for(const tf of EMA_TFS)$('emaEnabled_'+tf).onchange=saveSettings;
 for(const tf of RSI_MACD_TFS)$('rsiMacdEnabled_'+tf).onchange=saveSettings;
 function updateModeButton(){const live=operationMode==='live';$('modeBtn').textContent=live?'LIVE MODE':'CLOSED MODE';$('modeBtn').className=live?'mode-live':'mode-closed';$('modeBtn').setAttribute('aria-label','Candle mode: '+operationMode);}
