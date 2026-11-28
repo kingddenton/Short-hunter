@@ -133,10 +133,12 @@ body .alert-entry > .alert-change.change-neutral{
   <input id="workerCount" type="number" min="1" max="20" step="1" value="8" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mBull" type="checkbox" style="width:auto"> 15m Supertrend direction confirmation</label>
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="confirm15mMacd" type="checkbox" style="width:auto"> 15m MACD histogram direction confirmation (above zero bullish / below zero bearish)</label>
-  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="oiGateEnabled" type="checkbox" style="width:auto"> Historical OI gate (30m + 1h + 4h)</label>
+  <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="oiGateEnabled" type="checkbox" style="width:auto"> Historical OI gate (5m + 15m + 30m + 1h + 4h)</label>
+  <label class="status" for="oiMin5m">OI 5m min %</label><input id="oiMin5m" type="number" min="0" max="1000" step="0.1" value="0.5" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" for="oiMin15m">OI 15m min %</label><input id="oiMin15m" type="number" min="0" max="1000" step="0.1" value="1" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" for="oiMin30m">OI 30m min %</label><input id="oiMin30m" type="number" min="0" max="1000" step="0.1" value="3" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" for="oiMin1h">OI 1h min %</label><input id="oiMin1h" type="number" min="0" max="1000" step="0.1" value="3" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
-  <label class="status" for="oiMin4h">OI 4h min %</label><input id="oiMin4h" type="number" min="0" max="1000" step="0.1" value="3" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
+  <label class="status" for="oiMin4h">OI 4h min %</label><input id="oiMin4h" type="number" min="0" max="1000" step="0.1" value="5" style="width:75px;background:#0e1729;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px">
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="positive24hBothSides" type="checkbox" style="width:auto"> Positive 24H coins: allow on both bullish and bearish sides</label>
   <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="negative24hBothSides" type="checkbox" style="width:auto"> Negative 24H coins: allow on both bullish and bearish sides</label>
  </div>
@@ -1050,7 +1052,7 @@ async function scan(){
      const latest=samples[samples.length-1];
      const atOrBefore=target=>{for(let i=samples.length-1;i>=0;i--)if(samples[i].time<=target)return samples[i];return null;};
      const changes={};
-     for(const [tf,minutes] of [['30m',30],['1h',60],['4h',240]]){
+     for(const [tf,minutes] of [['5m',5],['15m',15],['30m',30],['1h',60],['4h',240]]){
       const base=atOrBefore(latest.time-minutes*60000);
       if(!base)throw new Error('Missing '+tf+' OI baseline');
       changes[tf]=((latest.oi-base.oi)/base.oi)*100;
@@ -1063,7 +1065,7 @@ async function scan(){
   };
   const passesOIGate=async(symbol)=>{
    if(!$('oiGateEnabled').checked)return {pass:true,detail:'OI gate disabled'};
-   const thresholds={'30m':Math.max(0,Number($('oiMin30m').value)||0),'1h':Math.max(0,Number($('oiMin1h').value)||0),'4h':Math.max(0,Number($('oiMin4h').value)||0)};
+   const thresholds={'5m':Math.max(0,Number($('oiMin5m').value)||0),'15m':Math.max(0,Number($('oiMin15m').value)||0),'30m':Math.max(0,Number($('oiMin30m').value)||0),'1h':Math.max(0,Number($('oiMin1h').value)||0),'4h':Math.max(0,Number($('oiMin4h').value)||0)};
    const changes=await getHistoricalOIPercentages(symbol);
    const failed=Object.keys(thresholds).filter(tf=>changes[tf]<thresholds[tf]);
    return {pass:failed.length===0,detail:Object.keys(thresholds).map(tf=>tf+' '+changes[tf].toFixed(2)+'% / '+thresholds[tf].toFixed(2)+'%').join(', ')};
@@ -1282,7 +1284,7 @@ function stop(){
 }
 const SETTINGS_KEY='shortHunterSettings_v1';
 function getSettingsControls(){
- const ids=['oiGateEnabled','oiMin30m','oiMin1h','oiMin4h','emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','rsiMonitorEntryLimit','monitorSoundEnabled','monitorSoundVolume','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
+ const ids=['oiGateEnabled','oiMin5m','oiMin15m','oiMin30m','oiMin1h','oiMin4h','emaEnabled_1m','emaEnabled_3m','emaEnabled_5m','emaEnabled_1h','emaTouchDistance','rsiMacdEnabled_1m','rsiMacdEnabled_3m','rsiMacdEnabled_5m','rsiMacdEnabled_1h','operationMode','universeMode','universeSize','topCount','bottomCount','minVolume','refreshInterval','workerCount','confirm15mBull','confirm15mMacd','positive24hBothSides','negative24hBothSides','rsiMonitorTf','rsiMonitorMin','rsiMonitorMax','macdFlipCandleLimit','rsiMonitorEntryLimit','monitorSoundEnabled','monitorSoundVolume','alertRsiSort','retestTolerance','retestRearm','nearLineTolerance'];
  for(const tf of TFS){
   ids.push('rsiBullEnabled_'+tf,'rsiBullMin_'+tf,'rsiBullMax_'+tf);
   ids.push('rsiBearEnabled_'+tf,'rsiBearMin_'+tf,'rsiBearMax_'+tf);
