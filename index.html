@@ -1040,7 +1040,7 @@ async function scan(){
   };
   const getHistoricalOIPercentages=async(symbol)=>{
    const cached=historicalOICache.get(symbol);
-   if(cached&&Date.now()-cached.time<OI_CACHE_MS)return cached.values;
+   if(cached&&Date.now()-cached.time<OI_CACHE_MS){if(cached.error)throw new Error(cached.error);return cached.values;}
    if(!oiPromises.has(symbol)){
     oiPromises.set(symbol,(async()=>{
      const rows=await getJson(BASE+'/futures/data/openInterestHist?symbol='+encodeURIComponent(symbol)+'&period=5m&limit=500');
@@ -1059,7 +1059,7 @@ async function scan(){
      return changes;
     })());
    }
-   try{return await oiPromises.get(symbol);}finally{oiPromises.delete(symbol);}
+   try{return await oiPromises.get(symbol);}catch(error){historicalOICache.set(symbol,{time:Date.now(),error:String(error&&error.message||error)});throw error;}finally{oiPromises.delete(symbol);}
   };
   const passesOIGate=async(symbol)=>{
    if(!$('oiGateEnabled').checked)return {pass:true,detail:'OI gate disabled'};
