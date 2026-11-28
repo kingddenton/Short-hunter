@@ -1148,8 +1148,8 @@ async function scan(){
     const activeConfirmPass=activeSide==='bull'?bullishAlertPass:activeSide==='bear'?bearishChangePass:false;
     const rsiValue=displayRsiSeries[latest];
     const rsiGate=activeSide?(activeConfig.enabled?(activeConfig.valid?(activeRsiPass?'PASS':'FAIL · '+(Number.isFinite(activeSeries[latest])?'outside configured range':'RSI unavailable')):'FAIL · invalid min/max settings'):'PASS · disabled'):'Not applicable';
-    const confirmGate=activeSide==='bull'?(bullishAlertPass?'PASS · bullish 15m gate':'FAIL · bullish 15m gate'):activeSide==='bear'?(confirm15mMacd?(bearishChangePass?'PASS · 15m MACD below zero':'FAIL · 15m MACD must be below zero'):'PASS · no bearish 15m MACD gate enabled'):'Not applicable';
-    qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:activeSide==='bull'?'BULLISH':activeSide==='bear'?'BEARISH':'NO DIRECTION',rsi:rsiValue,rsiGate,confirmGate,result:!activeSide?'NOT QUALIFIED':activeRsiPass&&activeConfirmPass?'QUALIFIED':'NOT QUALIFIED',reason:!activeSide?'No current Supertrend direction':!activeRsiPass?'RSI confirmation did not pass':!activeConfirmPass?'15m confirmation did not pass':''});
+    const confirmGate=activeSide==='bull'?(bullishAlertPass?'PASS · 15m/OI gates':'FAIL · 15m and/or OI gate'):activeSide==='bear'?(bearishChangePass?'PASS · 15m/OI gates':'FAIL · 15m and/or OI gate'):'Not applicable';
+    qualifyingDiagnostics.set(symbol+'|'+tf,{symbol,tf,direction:activeSide==='bull'?'BULLISH':activeSide==='bear'?'BEARISH':'NO DIRECTION',rsi:rsiValue,rsiGate,confirmGate,result:!activeSide?'NOT QUALIFIED':activeRsiPass&&activeConfirmPass?'QUALIFIED':'NOT QUALIFIED',reason:!activeSide?'No current Supertrend direction':!activeRsiPass?'RSI confirmation did not pass':!activeConfirmPass?'15m and/or OI confirmation did not pass':''});
     if(currentDirection===1&&bullishAlertPass&&rsiPasses(bullRsiSeries||[],latest,bullRsiConfig,'bull')){
      const state={symbol,time:candles[latest].closeTime,rsi:displayRsiSeries[latest]};
      currentStates[tf].bull.set(symbol,state);
