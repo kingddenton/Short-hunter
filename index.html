@@ -404,6 +404,9 @@ const macdFlipLastProcessed=new Map();
 const monitorSoundActive=new Set();
 const historicalOICache=new Map();
 const OI_CACHE_MS=5*60*1000;
+const LIVE_OI_POLL_MS=10000;
+const liveOIHistory=new Map();
+let liveOIPollTimer=null,liveOIPollBusy=false,liveOISymbols=[];
 let monitorAudioContext=null;
 const monitorWs=new Map();
 let monitorWsSymbolsKey='',monitorWsStopped=true,monitorWsOpen=0;
@@ -969,6 +972,64 @@ async function mapLimit(items,limit,fn){
  });
  await Promise.all(workers);
 }
+function setLiveOISymbols(symbols){
+ liveOISymbols=[...new Set(symbols||[])];
+ const keep=new Set(liveOISymbols);
+ for(const symbol of liveOIHistory.keys())if(!keep.has(symbol))liveOIHistory.delete(symbol);
+}
+async function pollLiveOI(){
+ if(!running||liveOIPollBusy||!liveOISymbols.length)return;
+ liveOIPollBusy=true;
+ const started=Date.now(),symbols=liveOISymbols.slice();
+ try{
+  let index=0;
+  const worker=async()=>{
+   while(index<symbols.length&&!rateLimited&&running){
+    const symbol=symbols[index++];
+    try{
+     const snapshot=await getJson(BASE+'/fapi/v1/openInterest?symbol='+encodeURIComponent(symbol));
+     const time=Number(snapshot.time)||Date.now(),oi=Number(snapshot.openInterest);
+     if(!Number.isFinite(oi)||oi<=0)continue;
+     let samples=liveOIHistory.get(symbol);
+     if(!samples){samples=[];liveOIHistory.set(symbol,samples);}
+     if(!samples.length||time>samples[samples.length-1].time)samples.push({time,oi});
+     const cutoff=Date.now()-4*60*60*1000-2*60*1000;
+     while(samples.length&&samples[0].time<cutoff)samples.shift();
+    }catch(error){if(rateLimited)break;}
+   }
+  };
+  await Promise.all(Array.from({length:Math.min(8,symbols.length)},worker));
+ }finally{
+  liveOIPollBusy=false;
+  if(running){
+   const elapsed=Date.now()-started;
+   liveOIPollTimer=setTimeout(pollLiveOI,Math.max(0,LIVE_OI_POLL_MS-elapsed));
+  }
+ }
+}
+function startLiveOIPoller(){
+ if(!running||liveOIPollTimer||liveOIPollBusy)return;
+ pollLiveOI();
+}
+function stopLiveOIPoller(){
+ if(liveOIPollTimer)clearTimeout(liveOIPollTimer);
+ liveOIPollTimer=null;
+ liveOISymbols=[];
+}
+function getLiveOIPercentages(symbol){
+ const samples=liveOIHistory.get(symbol);
+ if(!samples||samples.length<2)return null;
+ const latest=samples[samples.length-1];
+ if(Date.now()-latest.time>30000)return null;
+ const changes={};
+ for(const [tf,minutes] of [['5m',5],['15m',15],['30m',30],['1h',60],['4h',240]]){
+  const target=latest.time-minutes*60000;
+  let base=null;
+  for(let i=samples.length-1;i>=0;i--)if(samples[i].time<=target){base=samples[i];break;}
+  if(base&&target-base.time<=90000)changes[tf]=((latest.oi-base.oi)/base.oi)*100;
+ }
+ return changes;
+}
 function renderPerformance(){
  const p=performance.last;
  if(!p)return;
@@ -998,6 +1059,8 @@ async function scan(){
   const universeStarted=Date.now();
   const symbols=await getUniverse();
   if(running){
+   setLiveOISymbols(symbols);
+   startLiveOIPoller();
    updateCoreMarketStream(symbols);
    updateFullMarketMonitorStream(monitorMarketSymbols,symbols);
    bootstrapFullMarketMonitor(monitorMarketSymbols);
@@ -1066,7 +1129,9 @@ async function scan(){
   const passesOIGate=async(symbol)=>{
    if(!$('oiGateEnabled').checked)return {pass:true,detail:'OI gate disabled'};
    const thresholds={'5m':Math.max(0,Number($('oiMin5m').value)||0),'15m':Math.max(0,Number($('oiMin15m').value)||0),'30m':Math.max(0,Number($('oiMin30m').value)||0),'1h':Math.max(0,Number($('oiMin1h').value)||0),'4h':Math.max(0,Number($('oiMin4h').value)||0)};
-   const changes=await getHistoricalOIPercentages(symbol);
+   const changes={...(await getHistoricalOIPercentages(symbol))};
+   const liveChanges=getLiveOIPercentages(symbol);
+   if(liveChanges)for(const tf of Object.keys(liveChanges))changes[tf]=liveChanges[tf];
    const failed=Object.keys(thresholds).filter(tf=>changes[tf]<thresholds[tf]);
    return {pass:failed.length===0,detail:Object.keys(thresholds).map(tf=>tf+' '+changes[tf].toFixed(2)+'% / '+thresholds[tf].toFixed(2)+'%').join(', ')};
   };
@@ -1274,6 +1339,7 @@ function start(){
 }
 function stop(){
  running=false;
+ stopLiveOIPoller();
  stopCoreMarketStream();
  stopFullMarketMonitorStream();
  renderMonitoredCoins();
